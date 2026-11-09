@@ -1,0 +1,271 @@
+<!doctype html>
+<html lang="fr" data-dna="n">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Dash 955 · l'écran d'accueil de ta Alfa Romeo MiTo 2009</title>
+<meta name="description" content="Application gratuite pour autoradio Android, pensée pour l'Alfa Romeo MiTo de 2009 : 13 thèmes, vitesse GPS, musique, trajets, LED, alertes. Avec un boîtier OBD : régime, turbo, conso réelle, g, batterie.">
+<meta name="theme-color" content="#0c0d0f">
+<meta property="og:title" content="Dash 955 · pour Alfa Romeo MiTo 2009">
+<meta property="og:description" content="L'écran d'accueil de ta MiTo. Gratuit sans boîtier, toutes les données avec un boîtier OBD.">
+<meta property="og:type" content="website">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%230c0d0f'/><rect x='6' y='9' width='20' height='13' rx='3' fill='none' stroke='%23ece8e1' stroke-width='2'/><path d='M10 26h12' stroke='%23e3261c' stroke-width='2.4' stroke-linecap='round'/></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&display=swap">
+<link rel="stylesheet" href="scrollcraft.css">
+<link rel="stylesheet" href="dash.css">
+<script>
+  /* ------------------------------------------------------------------
+     RÉGLAGE DU TÉLÉCHARGEMENT
+     Mets ici le lien du fichier de l'application (APK).
+     Par défaut, le site pointe vers telechargement/dash955.apk :
+     dépose simplement ton fichier à cet endroit avec ce nom.
+     ------------------------------------------------------------------ */
+  window.DASH955 = {
+    fichier: "telechargement/dash955.apk",
+    version: "1.0",
+    android: "Android 8 ou plus récent"
+  };
+</script>
+</head>
+<body>
+
+<div class="sc-grain" aria-hidden="true"></div>
+
+<!-- App chrome: the head unit's own status bar is the navigation. -->
+<header class="bar">
+  <a class="bar__mark" href="#accueil" aria-label="Dash 955, retour en haut">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="11.5" rx="2.4"/><path d="M8 20h8"/></svg>
+    <span>Dash 955</span>
+  </a>
+  <nav class="bar__tabs" aria-label="Sections">
+    <a href="#accueil">Accueil</a>
+    <a href="#sans-boitier">Sans boîtier</a>
+    <a href="#ta-mito">Ta MiTo</a>
+    <a href="#avec-boitier">Avec boîtier</a>
+    <a href="#installer">Installer</a>
+  </nav>
+  <div class="bar__end">
+    <time class="bar__clock sc-nums" data-clock>--:--</time>
+    <div class="dna" role="radiogroup" aria-label="Sélecteur DNA : change l'ambiance du site">
+      <button type="button" role="radio" aria-checked="false" data-dna-set="d" title="Dynamic : mode sport">D</button>
+      <button type="button" role="radio" aria-checked="true"  data-dna-set="n" title="Normal">N</button>
+      <button type="button" role="radio" aria-checked="false" data-dna-set="a" title="All weather : temps froid">A</button>
+    </div>
+  </div>
+</header>
+
+<main>
+
+  <!-- 1 · L'accueil: the surface, already running. -->
+  <section id="accueil" class="hero" data-sc-act="flow">
+    <div class="sc-wrap hero__grid">
+      <div class="hero__copy" data-sc-in data-sc-stagger="70">
+        <p class="sc-label">Alfa Romeo MiTo · 2009</p>
+        <h1 class="hero__title">L'écran d'accueil de ta MiTo.</h1>
+        <p class="hero__lede">Vitesse, musique, trajets, LED et alertes sur ton autoradio Android. Gratuit. Avec un boîtier OBD, toutes les données moteur.</p>
+        <div class="hero__cta">
+          <a class="btn" data-download href="telechargement/dash955.apk" download>Télécharger l'application</a>
+          <a class="link" href="#sans-boitier">Voir les options</a>
+        </div>
+      </div>
+
+      <div class="hero__unit">
+        <div class="hu" data-screen="hero" data-view="home"></div>
+        <div class="themes" role="group" aria-label="13 thèmes d'accueil">
+          <p class="themes__name"><span class="themes__k">Thème</span> <span data-theme-name>Nuit</span></p>
+          <div class="themes__dots" data-theme-dots></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 2 · Sans boîtier OBD: the surface holds while each module runs. -->
+  <section id="sans-boitier" class="mods" data-sc-act="pin" data-sc-span="4.6" data-mods="free">
+    <div data-sc-stage class="mods__stage">
+      <div class="sc-wrap mods__grid">
+        <div class="mods__unit">
+          <div class="hu" data-screen="free" data-view="home"></div>
+          <p class="mods__caption" aria-live="polite" data-caption></p>
+        </div>
+        <div class="mods__panel">
+          <div class="mods__head">
+            <h2 class="mods__title">Sans boîtier OBD</h2>
+            <span class="pill">Gratuit</span>
+          </div>
+          <ul class="feats" role="list">
+            <li><button type="button" class="feat" data-view="themes" data-icon="themes"><span class="feat__t">13 thèmes d'accueil</span><span class="sr" data-detail>Compteur analogique, numérique, minimal, version jour ou nuit : 13 écrans d'accueil au choix, changeables à tout moment.</span></button></li>
+            <li><button type="button" class="feat" data-view="carplay" data-icon="carplay"><span class="feat__t">CarPlay en un glissement</span><span class="sr" data-detail>Un glissement vers la gauche ouvre l'appli de projection de ton autoradio. La MiTo 2009 n'a pas CarPlay d'origine : c'est l'autoradio Android qui l'apporte.</span></button></li>
+            <li><button type="button" class="feat" data-view="music" data-icon="music"><span class="feat__t">Musique + pochette</span><span class="sr" data-detail>Le titre en cours et sa pochette, quelle que soit l'appli musique que tu utilises sur l'autoradio.</span></button></li>
+            <li><button type="button" class="feat" data-view="speed" data-icon="speed"><span class="feat__t">Vitesse (GPS)</span><span class="sr" data-detail>La vitesse vient du GPS de l'autoradio, sans rien brancher. Ton compteur affiche toujours un peu plus : c'est normal, il est réglé pour ne jamais sous-estimer.</span></button></li>
+            <li><button type="button" class="feat" data-view="limit" data-icon="limit"><span class="feat__t">Panneau de limitation</span><span class="sr" data-detail>La limitation de la route en cours s'affiche à côté de ta vitesse. Le chiffre passe au rouge si tu dépasses.</span></button></li>
+            <li><button type="button" class="feat" data-view="recap" data-icon="recap"><span class="feat__t">Récap 3D de chaque trajet</span><span class="sr" data-detail>À l'arrivée, ton trajet en relief : le tracé coloré selon la vitesse, la distance, la durée et la moyenne.</span></button></li>
+            <li><button type="button" class="feat" data-view="trips" data-icon="trips"><span class="feat__t">Mes trajets · km · durée</span><span class="sr" data-detail>Chaque trajet est enregistré tout seul : départ, distance, durée. Les kilomètres du mois s'additionnent.</span></button></li>
+            <li><button type="button" class="feat" data-view="led" data-icon="led"><span class="feat__t">LED : couleurs, nuit, musique</span><span class="sr" data-detail>Pilote un ruban LED Bluetooth dans l'habitacle : une couleur fixe, un mode nuit tamisé, ou des LED qui battent avec la musique.</span></button></li>
+            <li><button type="button" class="feat" data-view="alerts" data-icon="alerts"><span class="feat__t">Verglas · loi Montagne · ZFE</span><span class="sr" data-detail>Alerte verglas à 3 °C et moins. Rappel loi Montagne : équipements hiver obligatoires du 1er novembre au 31 mars dans les communes concernées. Alerte à l'approche d'une ZFE selon ta vignette Crit'Air.</span></button></li>
+            <li><button type="button" class="feat" data-view="fuel" data-icon="fuel"><span class="feat__t">Prix du carburant · stations</span><span class="sr" data-detail>Les stations autour de toi et leur prix pour ton carburant (SP95-E10, SP98 ou gazole), triées du moins cher au plus cher.</span></button></li>
+            <li><button type="button" class="feat" data-view="service" data-icon="service"><span class="feat__t">Entretien · rappels</span><span class="sr" data-detail>Vidange, distribution, contrôle technique, pneus hiver : l'appli te prévient avant l'échéance. Intervalles pré-réglés selon ta motorisation, à ajuster d'après ton carnet d'entretien.</span></button></li>
+            <li><button type="button" class="feat" data-view="body" data-icon="body"><span class="feat__t">Portes · feux · marche arrière*</span><span class="sr" data-detail>Une porte ouverte, les feux allumés, la marche arrière enclenchée : tout s'affiche sur la silhouette de la MiTo, 3 portes et hayon.</span></button></li>
+          </ul>
+          <p class="mods__note">* Selon le faisceau et le décodeur CAN (canbox) livrés avec ton autoradio Android.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3 · Ta MiTo: the one act that reads like a document. -->
+  <section id="ta-mito" class="mito sc-section" data-sc-act="flow">
+    <div class="sc-wrap">
+      <div class="mito__intro" data-sc-in data-sc-stagger="70">
+        <h2 class="mito__title">Réglé pour la MiTo de 2009.</h2>
+        <p class="sc-body">Prise OBD, motorisations, distribution : l'appli connaît ta voiture. Choisis ta motorisation une fois, les rappels et les écrans suivent.</p>
+      </div>
+
+      <div class="mito__grid">
+        <figure class="port" data-sc-in>
+          <svg class="port__draw" viewBox="0 0 640 400" role="img" aria-labelledby="port-t">
+            <title id="port-t">Vue conducteur du bas de la planche de bord de la MiTo : la prise OBD se trouve derrière une trappe, à gauche du volant.</title>
+            <!-- dashboard top, binnacle -->
+            <path pathLength="1" class="ln ln--soft" d="M14 72 C140 52 250 46 330 46 C420 46 520 54 626 74"/>
+            <path pathLength="1" class="ln ln--soft" d="M236 62 C260 34 400 34 424 62"/>
+            <!-- steering wheel -->
+            <circle pathLength="1" class="ln" cx="330" cy="164" r="104"/>
+            <circle pathLength="1" class="ln ln--soft" cx="330" cy="164" r="90"/>
+            <circle pathLength="1" class="ln" cx="330" cy="164" r="30"/>
+            <path pathLength="1" class="ln" d="M300 166 L240 170 M360 166 L420 170 M318 192 L308 252 M342 192 L352 252"/>
+            <!-- column -->
+            <path pathLength="1" class="ln ln--soft" d="M304 268 L296 318 M356 268 L364 318"/>
+            <!-- lower dash edge and knee panel -->
+            <path pathLength="1" class="ln" d="M14 236 C110 230 190 228 236 228 M424 228 C480 228 560 232 626 238"/>
+            <path pathLength="1" class="ln" d="M44 252 C110 246 190 244 258 244 L270 338 C200 340 120 344 56 352 Z"/>
+            <!-- the OBD flap -->
+            <rect pathLength="1" class="ln ln--hot" x="150" y="276" width="70" height="42" rx="8"/>
+            <circle class="port__dot" cx="185" cy="297" r="6"/>
+            <text x="150" y="268">OBD</text>
+            <!-- pedals -->
+            <path pathLength="1" class="ln ln--soft" d="M286 344 h30 v48 h-30 z M336 344 h38 v42 h-38 z M396 344 h52 v32 h-52 z"/>
+          </svg>
+          <figcaption>
+            <span class="port__k">Prise OBD</span>
+            Sous la planche de bord, à gauche du volant, derrière une petite trappe. Le boîtier s'y branche en deux secondes et peut y rester.
+          </figcaption>
+        </figure>
+
+        <div class="engines" data-sc-in>
+          <h3 class="engines__title">Ce que l'appli règle selon ta motorisation</h3>
+          <div class="engines__scroll">
+            <table>
+              <thead><tr><th scope="col">Motorisation</th><th scope="col">Carburant</th><th scope="col">Turbo</th><th scope="col">Distribution</th></tr></thead>
+              <tbody>
+                <tr><th scope="row">1.4 · 78 ch</th><td>Essence</td><td class="no">Non</td><td>Courroie</td></tr>
+                <tr><th scope="row">1.4 TB · 120 ch</th><td>Essence</td><td>Oui</td><td>Courroie</td></tr>
+                <tr><th scope="row">1.4 TB · 155 ch</th><td>Essence</td><td>Oui</td><td>Courroie</td></tr>
+                <tr><th scope="row">1.4 MultiAir · 105 ch</th><td>Essence</td><td class="no">Non</td><td>Courroie</td></tr>
+                <tr><th scope="row">1.4 MultiAir TB · 135 ch</th><td>Essence</td><td>Oui</td><td>Courroie</td></tr>
+                <tr><th scope="row">1.3 JTDM · 90 ch</th><td>Gazole</td><td>Oui</td><td>Chaîne</td></tr>
+                <tr><th scope="row">1.6 JTDM · 120 ch</th><td>Gazole</td><td>Oui</td><td>Courroie</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="engines__note">La pression de turbo ne s'affiche que sur les moteurs turbo. Sur le 1.3 JTDM, pas de rappel de courroie : il a une chaîne.</p>
+        </div>
+
+        <div class="dnabox" data-sc-in>
+          <p class="dnabox__letters" aria-hidden="true"><span>D</span><span>N</span><span>A</span></p>
+          <h3 class="dnabox__title">Le sélecteur DNA, ici aussi.</h3>
+          <p class="sc-body">Comme sur la console de ta MiTo, en haut à droite de cette page. D passe tout le site en mode sport, A en temps froid avec l'alerte verglas, N reste sobre. Ta MiTo démarre toujours en N, ce site aussi.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4 · Avec le boîtier: same surface, now wired to the engine. -->
+  <section id="avec-boitier" class="mods mods--box" data-sc-act="pin" data-sc-span="3.1" data-mods="box">
+    <div data-sc-stage class="mods__stage">
+      <div class="sc-wrap mods__grid">
+        <div class="mods__unit">
+          <div class="hu" data-screen="box" data-view="sport" data-obd="1"></div>
+          <p class="mods__caption" aria-live="polite" data-caption></p>
+        </div>
+        <div class="mods__panel">
+          <div class="mods__head">
+            <h2 class="mods__title">Avec le boîtier, en plus</h2>
+            <span class="pill pill--solid">Toutes les données</span>
+          </div>
+          <ul class="feats feats--box" role="list">
+            <li><button type="button" class="feat" data-view="sport" data-icon="sport"><span class="feat__t">Mode sport : LED sur la vraie accélération</span><span class="sr" data-detail>Les LED suivent l'accélération réelle, calculée sur le régime et la charge moteur que lit le boîtier. Pied au plancher, tout s'allume.</span></button></li>
+            <li><button type="button" class="feat" data-view="conso" data-icon="conso"><span class="feat__t">Conso réelle + coût de chaque trajet</span><span class="sr" data-detail>Consommation instantanée et moyenne calculées sur les données moteur, et le coût de chaque trajet au prix de ton carburant.</span></button></li>
+            <li><button type="button" class="feat" data-view="gauges" data-icon="gauges"><span class="feat__t">Régime · couple · eau</span><span class="sr" data-detail>Régime moteur, couple estimé et température d'eau, en direct.</span></button></li>
+            <li><button type="button" class="feat" data-view="g" data-icon="g"><span class="feat__t">Virages en g · freinages</span><span class="sr" data-detail>La force en virage et au freinage, en g, avec les maximums de chaque trajet.</span></button></li>
+            <li><button type="button" class="feat" data-view="signals" data-icon="signals"><span class="feat__t">Clignotants · frein à main</span><span class="sr" data-detail>Clignotants et frein à main à l'écran. Sur la MiTo, ces infos passent par le réseau carrosserie (B-CAN, broches 1 et 9 de la prise OBD) : prends un boîtier qui le lit.</span></button></li>
+            <li><button type="button" class="feat" data-view="battery" data-icon="battery"><span class="feat__t">Batterie · voyants</span><span class="sr" data-detail>Tension de la batterie en direct (autour de 14 V moteur tournant, 12,6 V à l'arrêt) et lecture des codes défaut quand un voyant s'allume.</span></button></li>
+            <li><button type="button" class="feat" data-view="cold" data-icon="cold"><span class="feat__t">Moteur froid en °C · turbo</span><span class="sr" data-detail>Tant que l'eau est sous 70 °C, l'écran te rappelle de ménager le moteur. Pression de turbo en bar sur les 1.4 TB, MultiAir TB et JTDM.</span></button></li>
+          </ul>
+          <p class="mods__note">Boîtier : un ELM327 Bluetooth suffit pour le moteur. Pour clignotants, frein à main et portes, choisis un modèle compatible B-CAN.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 5 · Installer: lateral travel, one step per stop. -->
+  <section id="installer" class="steps" data-sc-act="pan" data-sc-span="2.2">
+    <div data-sc-stage class="steps__stage">
+      <ol class="steps__rail" data-sc-pan="0.08">
+        <li class="steps__lead">
+          <h2 class="steps__title">Installé en cinq minutes.</h2>
+          <p class="sc-body">Sur ton autoradio Android ou une tablette fixée au tableau de bord.</p>
+        </li>
+        <li class="step"><span class="step__n">1</span><h3>Télécharge le fichier</h3><p>Depuis le navigateur de l'autoradio, ou sur ton ordinateur puis une clé USB.</p></li>
+        <li class="step"><span class="step__n">2</span><h3>Installe-le</h3><p>Ouvre le fichier APK. Android demande d'autoriser les applications inconnues : accepte pour cette installation.</p></li>
+        <li class="step"><span class="step__n">3</span><h3>Fais-en ton accueil</h3><p>Choisis Dash 955 comme écran d'accueil. Autorise la localisation (vitesse) et l'accès aux notifications (titre et pochette).</p></li>
+        <li class="step"><span class="step__n">4</span><h3>Branche le boîtier</h3><p>En option. Prise OBD à gauche du volant, appairage Bluetooth depuis l'appli, puis choix de ta motorisation.</p></li>
+        <li class="step"><span class="step__n">5</span><h3>Roule</h3><p>Ton premier récap 3D t'attend à l'arrivée. Les réglages se font à l'arrêt.</p></li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- 6 · Télécharger: the close is a first-run step, a real input. -->
+  <section id="telecharger" class="setup" data-sc-act="flow">
+    <div class="sc-wrap setup__wrap">
+      <form class="setup__card" data-setup data-sc-in onsubmit="return false">
+        <h2 class="setup__title">Prépare ta MiTo.</h2>
+        <div class="setup__row">
+          <label for="engine">Ta motorisation</label>
+          <div class="select">
+            <select id="engine" name="engine" data-engine>
+              <option value="14-78">1.4 · 78 ch</option>
+              <option value="14tb-120">1.4 TB · 120 ch</option>
+              <option value="14tb-155" selected>1.4 TB · 155 ch</option>
+              <option value="14ma-105">1.4 MultiAir · 105 ch</option>
+              <option value="14ma-135">1.4 MultiAir TB · 135 ch</option>
+              <option value="13jtdm-90">1.3 JTDM · 90 ch</option>
+              <option value="16jtdm-120">1.6 JTDM · 120 ch</option>
+            </select>
+          </div>
+        </div>
+        <fieldset class="setup__row">
+          <legend>Boîtier OBD</legend>
+          <div class="seg">
+            <label><input type="radio" name="obd" value="0" checked data-obd-choice><span>Pas encore</span></label>
+            <label><input type="radio" name="obd" value="1" data-obd-choice><span>J'en ai un</span></label>
+          </div>
+        </fieldset>
+        <output class="setup__out" data-setup-out aria-live="polite"></output>
+        <a class="btn btn--wide" data-download href="telechargement/dash955.apk" download>Télécharger l'application</a>
+        <p class="setup__meta" data-file-meta>Gratuit · fichier APK · Android 8 ou plus récent</p>
+      </form>
+    </div>
+    <footer class="foot sc-wrap">
+      <p>Dash 955 · application indépendante pour Alfa Romeo MiTo (2008 à 2018), réglée pour les modèles 2009.</p>
+      <p>Non affiliée à Alfa Romeo ni à Stellantis. Alfa Romeo et MiTo sont des marques de leurs propriétaires. Les écrans de cette page tournent sur un trajet simulé.</p>
+    </footer>
+  </section>
+
+</main>
+
+<script src="scrollcraft.js"></script>
+<script>ScrollCraft.mount(document.body);</script>
+<script src="dash.js"></script>
+</body>
+</html>
