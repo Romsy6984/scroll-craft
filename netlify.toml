@@ -1,0 +1,3 @@
+# Netlify : publie le site Dash 955 (aucune compilation nécessaire).
+[build]
+  publish = "sites/mito-2009"

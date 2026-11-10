@@ -1,0 +1,8 @@
+# Netlify : l'APK est servi comme une appli Android, pour qu'Android propose l'installation.
+/telechargement/*.apk
+  Content-Type: application/vnd.android.package-archive
+  Content-Disposition: attachment; filename=dash955.apk
+
+# La version web se met à jour dès qu'elle change.
+/app/sw.js
+  Cache-Control: no-cache
