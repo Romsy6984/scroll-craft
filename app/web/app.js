@@ -65,6 +65,16 @@
     warn: '<path d="M12 4 2.5 20h19z"/><path d="M12 10v4.5M12 17.5v.5"/>',
     check: '<path d="M5 12.5l4.5 4.5L19 7.5"/>',
     carplay: '<rect x="3.5" y="4.5" width="17" height="11.5" rx="2.2"/><path d="M9 20h6M12 16v4"/>',
+    car: '<path d="M5 11l1.6-4.2A2 2 0 0 1 8.5 5.5h7a2 2 0 0 1 1.9 1.3L19 11"/><rect x="3" y="11" width="18" height="6" rx="2"/><path d="M6 17v2M18 17v2"/><circle cx="7.5" cy="14" r="1"/><circle cx="16.5" cy="14" r="1"/>',
+    phone: '<path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a1 1 0 0 1-1 1A16 16 0 0 1 4 5a1 1 0 0 1 1-1z"/>',
+    search: '<circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/>',
+    locate: '<circle cx="12" cy="12" r="3.5"/><circle cx="12" cy="12" r="7.5"/><path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2"/>',
+    star: '<path d="M12 3.5l2.6 5.5 6 .7-4.4 4.1 1.2 5.9L12 16.8 6.6 19.7l1.2-5.9L3.4 9.7l6-.7z"/>',
+    work: '<rect x="3.5" y="7.5" width="17" height="12" rx="2"/><path d="M9 7.5V5.5h6v2M3.5 12.5h17"/>',
+    vol: '<path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path d="M15.5 9a4 4 0 0 1 0 6"/>',
+    msg: '<path d="M4 5.5h16v10H9l-5 4z"/>',
+    back: '<path d="M9 5.5h11v13H9l-5.5-6.5z"/><path d="M12.5 9.5l5 5M17.5 9.5l-5 5"/>',
+    split: '<rect x="3.5" y="4.5" width="17" height="15" rx="2"/><path d="M12 4.5v15"/>',
   };
   const icon = (n) => '<svg viewBox="0 0 24 24" aria-hidden="true">' + (IC[n] || '') + '</svg>';
 
@@ -192,7 +202,7 @@
     obdStatus(d) {
       L.obd = d;
       if (d.state === 'connected') { toast('Boîtier OBD connecté'); keepAlive(); }
-      if (d.state === 'notfound') toast('Aucun boîtier trouvé');
+      if (d.state === 'notfound' && L.userDetect) { toast('Aucun boîtier trouvé'); L.userDetect = false; }
       if (d.state === 'off' || d.state === 'lost') keepAlive();
       refreshIf(['engine', 'home']);
       renderStatus();
@@ -220,13 +230,21 @@
     resume() {
       if (!NATIVE) return;
       try { INFO = JSON.parse(call('info') || '{}'); } catch (e) {}
+      APPS = null;
       call('mediaRefresh');
-      if ($('#sheet').hidden) render();
+      call('obdResume');
+      renderCar();
+      if (panelKind && $('#sheet').hidden) render();
+      if (map) setTimeout(() => map.invalidateSize(), 200);
+    },
+    appIcon(d) {
+      ICON_CACHE[d.pkg] = d.icon;
+      $$(`[data-appic="${d.pkg}"]`).forEach((el) => { el.style.backgroundImage = `url('${d.icon}')`; el.textContent = ''; });
     },
     back() {
       if (!$('#sheet').hidden) return closeSheet();
-      if (view !== 'home') return go('home');
-      if (NATIVE) call('exit');
+      if (panelKind) return closePanel();
+      if (dest) { dest = null; if (destMk && map) map.removeLayer(destMk); renderDest(); return; }
     },
   };
   window.Dash = { onNative(ev, data) { try { H[ev] && H[ev](data || {}); } catch (e) { console.error(ev, e); } }, state: () => ({ S, L }) };
@@ -375,7 +393,7 @@
         const geo = r.geom || {};
         const lat = geo.lat != null ? geo.lat : r.latitude / 100000, lon = geo.lon != null ? geo.lon : r.longitude / 100000;
         const p = r[field];
-        return { name: [r.adresse, r.ville].filter(Boolean).join(', ') || 'Station', price: typeof p === 'number' ? p : parseFloat(p), dist: haversine([g.lat, g.lon], [lat, lon]) / 1000, maj: r[field.replace('_prix', '_maj')] };
+        return { name: [r.adresse, r.ville].filter(Boolean).join(', ') || 'Station', price: typeof p === 'number' ? p : parseFloat(p), dist: haversine([g.lat, g.lon], [lat, lon]) / 1000, maj: r[field.replace('_prix', '_maj')], lat, lon };
       }).filter((s) => s.price > 0.5).sort((a, b) => a.price - b.price || a.dist - b.dist).slice(0, 10);
       L.stations = list; L.stationsT = now(); L.stationsErr = list.length ? '' : 'Aucune station avec du ' + S.fuelType + ' à moins de 10 km';
       refreshIf(['route', 'home']);
@@ -456,10 +474,12 @@
   }
 
   /* -------------------------------------------------------------- UI -- */
-  const VIEWS = ['home', 'engine', 'trips', 'route', 'led', 'service', 'settings'];
-  const LABELS = { home: 'Accueil', engine: 'Moteur', trips: 'Trajets', route: 'Route', led: 'LED', service: 'Entretien', settings: 'Réglages' };
-  const ICONS = { home: 'home', engine: 'engine', trips: 'trips', route: 'route', led: 'led', service: 'service', settings: 'settings' };
-  let view = 'home', selTrip = 0;
+  const VEH = ['engine', 'trips', 'route', 'led', 'service', 'settings'];
+  const LABELS = { engine: 'Moteur', trips: 'Trajets', route: 'Route', led: 'LED', service: 'Entretien', settings: 'Réglages', music: 'Musique', phone: 'Téléphone', apps: 'Applications' };
+  const ICONS = { engine: 'engine', trips: 'trips', route: 'route', led: 'led', service: 'service', settings: 'settings' };
+  let view = 'home', selTrip = 0, panelKind = '', panelSeq = 0;
+  const REDUCE = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const haptic = (ms = 7) => { try { if (navigator.vibrate) navigator.vibrate(ms); } catch (e) {} };
 
   function applyTheme() {
     const t = theme(), r = document.documentElement.style;
@@ -467,22 +487,39 @@
     r.setProperty('--card2', t.card2); r.setProperty('--acc', t.acc); r.setProperty('--acc-ink', t.ink);
     r.setProperty('--line', t.light ? 'rgba(0,0,0,.09)' : 'rgba(255,255,255,.08)');
     document.documentElement.style.colorScheme = t.light ? 'light' : 'dark';
+    document.documentElement.dataset.layout = t.layout;
     const m = $('meta[name=theme-color]'); if (m) m.content = t.bg;
+    if (typeof setTiles === 'function' && map) setTiles();
   }
 
-  function renderDock() {
-    const d = $('#dock');
-    if (!d.children.length) d.innerHTML = '<span class="dock__pill" aria-hidden="true"></span>' + VIEWS.map((v) => `<button type="button" data-go="${v}">${icon(ICONS[v])}<span>${LABELS[v]}</span></button>`).join('');
-    $$('button', d).forEach((b) => { if (b.dataset.go === view) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current'); });
-    movePill();
+  /* ---- barre du bas : voiture · mini-lecteur · navigation, musique, téléphone, CarPlay, applis ---- */
+  function renderBar() {
+    const b = $('#bar');
+    const cp = S.carplay.label || 'CarPlay';
+    b.innerHTML = `<button class="bar__btn bar__car" data-panel="engine">${icon('car')}<span>Voiture</span></button>
+      <div class="mini" data-music>
+        <button class="mini__open" data-panel="music" aria-label="Ouvrir la musique"><span class="cover" data-cover>${icon('music')}</span>
+        <span class="col fill" style="gap:1px;min-width:0"><span class="t ell" data-k="mTitle"></span><span class="s ell" data-k="mArtist"></span></span></button>
+        ${NATIVE || L.demo ? `<button class="icon-btn" data-media="prev" aria-label="Précédent">${icon('prev')}</button><button class="icon-btn" data-media="toggle" data-play aria-label="Lecture ou pause">${icon('play')}</button><button class="icon-btn" data-media="next" aria-label="Suivant">${icon('next')}</button>` : ''}
+      </div>
+      <div class="bar__apps">
+        <button class="bar__btn" data-act="navSearch">${icon('search')}<span>Navigation</span></button>
+        <button class="bar__btn" data-panel="music">${icon('music')}<span>Musique</span></button>
+        <button class="bar__btn" data-panel="phone">${icon('phone')}<span>Téléphone</span></button>
+        <button class="bar__btn" data-act="carplay">${icon('carplay')}<span class="ell" data-k="cpLabel">${esc(cp)}</span></button>
+        <button class="bar__btn" data-panel="apps">${icon('apps')}<span>Applis</span></button>
+      </div>
+      ${NATIVE ? `<div class="bar__vol"><button class="icon-btn" data-vol="-1" aria-label="Baisser le volume">−</button>${icon('vol')}<button class="icon-btn" data-vol="1" aria-label="Monter le volume">+</button></div>` : ''}`;
+    markBar();
+    updateMusic();
   }
-  function movePill() {
-    const d = $('#dock'), b = $('button[aria-current]', d), p = $('.dock__pill', d);
-    if (!b || !p) return;
-    p.style.width = b.offsetWidth + 'px'; p.style.height = b.offsetHeight + 'px';
-    p.style.transform = `translate3d(${b.offsetLeft}px, ${b.offsetTop}px, 0)`;
+  function markBar() {
+    $$('#bar [data-panel]').forEach((x) => {
+      const on = x.dataset.panel === panelKind || (x.classList.contains('bar__car') && VEH.includes(panelKind));
+      if (on) x.setAttribute('aria-current', 'page'); else x.removeAttribute('aria-current');
+    });
   }
-  window.addEventListener('resize', () => requestAnimationFrame(movePill));
+
   let statusKey = '';
   function renderStatus() {
     const o = L.obd.state;
@@ -490,34 +527,56 @@
     const clock = $('#status [data-k="clock"]');
     if (key === statusKey && clock) { clock.textContent = hhmm(); return; }
     statusKey = key;
-    const obdCls = o === 'connected' ? 'on' : ['connecting', 'detect', 'scan', 'sleep'].includes(o) ? 'wait' : o === 'lost' ? 'bad' : '';
+    const obdCls = o === 'connected' ? 'on' : ['connecting', 'detect', 'scan', 'sleep', 'notfound'].includes(o) ? 'wait' : o === 'lost' ? 'bad' : '';
     const t = outsideTemp();
     $('#status').innerHTML = `<div class="grp"><b data-k="clock">${hhmm()}</b><span>${t != null ? t + ' °C' : ''}</span></div>
       <div class="grp">${L.demo ? '<span class="demo-badge">DÉMO</span>' : ''}
-      <span class="ind ${L.gps.t && now() - L.gps.t < 5000 ? 'on' : L.gpsErr ? 'bad' : ''}" data-ind="gps"><i></i>GPS</span>
-      ${NATIVE || L.demo ? `<span class="ind ${L.demo ? 'on' : obdCls}"><i></i>OBD</span>` : ''}
-      ${NATIVE ? `<span class="ind ${L.led.state === 'connected' ? 'on' : ''}"><i></i>LED</span><button class="btn small" data-act="apps" style="min-height:32px">${icon('apps').replace('<svg', '<svg style="width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2"')}Applis</button>` : ''}</div>`;
+      <span class="ind ${L.gps.t && now() - L.gps.t < 5000 ? 'on' : L.gpsErr ? 'bad' : ''}"><i></i>GPS</span>
+      ${NATIVE || L.demo ? `<button class="ind ${L.demo ? 'on' : obdCls}" data-panel="engine"><i></i>OBD</button>` : ''}
+      ${NATIVE ? `<button class="ind ${L.led.state === 'connected' ? 'on' : ''}" data-panel="led"><i></i>LED</button>` : ''}</div>`;
   }
-  function go(v, dir) {
-    if (!VIEWS.includes(v)) return;
-    if (v === view) { $('#view').scrollTo({ top: 0, behavior: 'smooth' }); return; }
-    const from = VIEWS.indexOf(view);
-    view = v; renderDock();
-    render(dir || (VIEWS.indexOf(v) > from ? 1 : -1));
-    if (v === 'route') fetchStations(false);
-    if (v === 'engine' && NATIVE && L.obd.state === 'connected' && L.dtc == null) call('obdReadDtc');
+
+  /* ---- panneaux (cartes qui montent au-dessus de la carte) ---- */
+  function openPanel(kind, dir) {
+    if (!kind || kind === 'home') return closePanel();
+    if (kind === panelKind && !dir) return closePanel();
+    const p = $('#panel'), veh = VEH.includes(kind);
+    const from = VEH.indexOf(view);
+    panelKind = kind; view = kind; panelSeq++;
+    p.classList.toggle('has-nav', veh);
+    $('#panel-title').textContent = veh ? 'Voiture' : LABELS[kind] || '';
+    $('#panel-nav').innerHTML = veh ? VEH.map((v) => `<button type="button" data-panel="${v}" ${v === kind ? 'aria-current="page"' : ''}>${icon(ICONS[v])}<span>${LABELS[v]}</span></button>`).join('') : '';
+    const wasOpen = !p.hidden && p.classList.contains('open');
+    if (p.hidden) { p.hidden = false; void p.offsetWidth; }
+    p.classList.add('open');
+    render(wasOpen && veh && from > -1 ? (VEH.indexOf(kind) > from ? 1 : -1) : 0);
     $('#view').scrollTop = 0;
+    markBar();
+    if (kind === 'route') fetchStations(false);
+    if (kind === 'engine' && NATIVE && L.obd.state === 'connected' && L.dtc == null) call('obdReadDtc');
+    if (kind === 'apps') loadIcons();
+    if (kind === 'music' && NATIVE) { call('mediaRefresh'); readVolume(); }
   }
-  function refreshIf(list) { if (list.includes(view) && $('#sheet').hidden) render(); }
+  function closePanel() {
+    const p = $('#panel'), seq = ++panelSeq;
+    p.classList.remove('open');
+    panelKind = ''; view = 'home';
+    markBar();
+    setTimeout(() => { if (seq === panelSeq) { p.hidden = true; $('#view').innerHTML = ''; bind(); } }, REDUCE ? 0 : 260);
+  }
+  function go(v, dir) { if (v === 'home') closePanel(); else openPanel(v, dir || 1); }
+  function refreshIf(list) {
+    if (list.includes('home')) renderCar();
+    if (panelKind && list.includes(view) && $('#sheet').hidden) render();
+  }
   function render(dir) {
     const fn = R[view], el = $('#view');
     el.innerHTML = '<div class="page">' + (fn ? fn() : '') + '</div>';
     if (dir && !REDUCE) el.firstElementChild.classList.add(dir > 0 ? 'enter-next' : 'enter-prev');
     bind();
     tick(true);
+    updateMusic();
   }
-  const REDUCE = matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const haptic = (ms = 7) => { try { if (navigator.vibrate) navigator.vibrate(ms); } catch (e) {} };
 
   /* gauge */
   function polar(r, a) { const t = (a * Math.PI) / 180; return [50 + r * Math.cos(t), 50 + r * Math.sin(t)]; }
@@ -564,7 +623,12 @@
     mTitle: () => L.media.title || (NATIVE && !INFO.media && !L.media.access ? 'Musique' : 'Aucune lecture'),
     mArtist: () => L.media.artist || (NATIVE && !mediaOk() ? 'Autorise l\'accès pour voir le titre' : L.media.app || ''),
     limitRoad: () => (L.limit && L.limit.road ? L.limit.road : 'Limitation de la route'),
+    mApp: () => L.media.app || 'Musique',
+    mPos: () => { const m = L.media; if (!m.dur) return ''; const pos = Math.min(m.dur, m.playing ? m.pos + (now() - (m.at || m.rx)) * (m.speed || 1) : m.pos); return mmss(pos); },
+    mDur: () => (L.media.dur ? mmss(L.media.dur) : ''),
+    cpLabel: () => S.carplay.label || 'CarPlay',
   };
+  const mmss = (ms) => { const s = Math.max(0, Math.floor(ms / 1000)); return Math.floor(s / 60) + ':' + pad(s % 60); };
   const B = {
     inst: () => (L.fuelRate == null ? 0 : L.speed > 5 ? (L.fuelRate / L.speed) * 100 / 25 : 0.05),
     volt: () => { const v = L.o.volt != null ? L.o.volt : L.o.cmv; return v == null ? 0 : (v - 11.5) / 3.2; },
@@ -582,6 +646,7 @@
   const C = {
     over: () => L.limit && L.limit.v && L.speed > L.limit.v + 1,
     cold: () => L.o.ect != null && L.o.ect < 70 && obdFresh(),
+    brake: () => SM.accel < -1.8,
   };
   let bound = [];
   function bind() {
@@ -610,60 +675,255 @@
 
   /* ------------------------------------------------------------- vues -- */
   const mediaOk = () => !NATIVE || INFO.media || L.media.access || (L.media && !L.media.none);
-  function musicHtml(big) {
-    const m = L.media, art = m.art ? `style="background-image:url('${m.art}')"` : '';
-    const ctrls = NATIVE ? `<div class="ctrls"><button class="icon-btn" data-media="prev" aria-label="Précédent">${icon('prev')}</button><button class="icon-btn" data-media="toggle" aria-label="Lecture ou pause" data-play>${icon(m.playing ? 'pause' : 'play')}</button><button class="icon-btn" data-media="next" aria-label="Suivant">${icon('next')}</button></div>` : '';
-    const access = NATIVE && !mediaOk() ? `<button class="btn small" data-act="mediaAccess">Autoriser</button>` : '';
-    return `<div class="card music" data-music><div class="cover" ${art} data-cover style="width:${big ? 104 : 84}px;height:${big ? 104 : 84}px">${m.art ? '' : icon('music')}</div>
-      <div class="col fill" style="gap:4px"><span class="k">${esc(L.media.app || 'Musique')}</span><span class="t ell" data-k="mTitle"></span><span class="s ell" data-k="mArtist"></span>
-      <div class="bar-t" style="margin-top:6px"><i data-bar="music"></i></div>${ctrls}${access}</div></div>`;
-  }
   function updateMusic() {
-    const el = $('[data-music]');
-    if (!el) return;
-    const c = $('[data-cover]', el), m = L.media;
-    if (c) { c.style.backgroundImage = m.art ? `url('${m.art}')` : ''; c.innerHTML = m.art ? '' : icon('music'); }
-    const p = $('[data-play]', el); if (p) p.innerHTML = icon(m.playing ? 'pause' : 'play');
-    const k = $('.k', el); if (k) k.textContent = m.app || 'Musique';
+    const m = L.media;
+    $$('[data-cover]').forEach((c) => {
+      c.style.backgroundImage = m.art ? `url('${m.art}')` : '';
+      c.innerHTML = m.art ? '' : icon('music');
+    });
+    $$('[data-play]').forEach((p) => { p.innerHTML = icon(m.playing ? 'pause' : 'play'); });
   }
   function signHtml(cls) { return `<span class="sign ${L.limit && L.limit.v ? '' : 'none'} ${cls || ''}" data-k="limit">–</span>`; }
   function alertLine() {
     const a = alerts();
-    if (!a.length) return `<div class="alert-line">${icon('check')}<span>Tout va bien. Bonne route.</span></div>`;
+    if (!a.length) return `<div class="alert-line" data-alert>${icon('check')}<span>Tout va bien. Bonne route.</span></div>`;
     const x = a[Math.floor(now() / 6000) % a.length];
     return `<div class="alert-line ${x.hot ? 'hot' : ''}" data-alert>${icon(x.ic)}<span class="ell">${esc(x.text)}</span></div>`;
   }
   function nextService() { const d = serviceDue(); const x = d.find((y) => y.label !== 'À renseigner') || d[0]; return x ? [x.name, x.label] : ['Entretien', '–']; }
-  const speedBlock = (u = 'km/h') => `<div><span class="big" data-k="speed" data-on="over:over">0</span> <span class="u">${u}</span></div>`;
-  const carplayTab = () => `<button class="carplay-tab" data-act="carplay" aria-label="Ouvrir CarPlay">‹ CARPLAY</button>`;
+
+  /* la MiTo de profil : silhouette originale, feux stop et éclairage vivants */
+  function carSvg() {
+    return `<svg class="mito" viewBox="0 0 360 150" aria-hidden="true">
+      <defs><radialGradient id="glow" cx="50%" cy="50%" r="50%"><stop offset="0" stop-color="var(--ledc, var(--acc))" stop-opacity=".55"/><stop offset="1" stop-color="var(--ledc, var(--acc))" stop-opacity="0"/></radialGradient>
+      <linearGradient id="body" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--card2)"/><stop offset="1" stop-color="var(--card)"/></linearGradient></defs>
+      <ellipse class="mito__glow" cx="180" cy="132" rx="150" ry="14" fill="url(#glow)"/>
+      <path class="mito__body" d="M18 104 C18 92 28 84 48 80 L112 70 C130 58 150 44 170 38 C200 32 245 32 268 36 C290 40 310 48 322 56 L334 66 C340 74 342 92 340 110 L312 114 A30 30 0 0 0 250 114 L116 114 A30 30 0 0 0 54 114 L26 114 C20 113 18 110 18 104 Z" fill="url(#body)"/>
+      <path class="mito__glass" d="M124 70 C140 58 156 47 172 43 L232 41 L232 70 Z M238 41 L266 42 C284 46 300 54 310 62 L238 70 Z"/>
+      <path class="mito__line" d="M120 72 L118 112 M236 70 L236 112 M48 92 L112 86"/>
+      <path class="mito__head" d="M22 92 C26 86 34 83 46 82 L44 92 Z"/>
+      <circle class="mito__tail" cx="329" cy="72" r="6.5"/>
+      <g class="mito__wheel"><circle cx="85" cy="116" r="24"/><circle cx="85" cy="116" r="13"/></g>
+      <g class="mito__wheel"><circle cx="281" cy="116" r="24"/><circle cx="281" cy="116" r="13"/></g>
+    </svg>`;
+  }
+  function renderCar() {
+    const t = theme(), el = $('#carpane');
+    if (!el) return;
+    const live = obdOn();
+    const speed = t.layout === 'analog'
+      ? gauge('spd', `<span class="big" data-k="speed" data-on="over:over">0</span><span class="u">km/h</span>`)
+      : `<div class="spd"><span class="big" data-k="speed" data-on="over:over">0</span><span class="u">km/h</span></div>`;
+    const stats = live
+      ? `<div class="stat"><span class="k">Eau</span><span class="n"><span data-k="ect" data-on="cold:cold"></span><small>°C</small></span></div>
+         <div class="stat"><span class="k">${engine().turbo ? 'Turbo' : 'Régime'}</span><span class="n">${engine().turbo ? '<span data-k="boost"></span><small>bar</small>' : '<span data-k="rpm"></span>'}</span></div>
+         <div class="stat"><span class="k">Conso</span><span class="n"><span data-k="inst"></span><small data-k="instU"></small></span></div>
+         <div class="stat"><span class="k">Batterie</span><span class="n"><span data-k="volt"></span><small>V</small></span></div>`
+      : `<div class="stat"><span class="k" data-k="tripLabel"></span><span class="n"><span data-k="trip"></span></span></div>
+         <div class="stat"><span class="k">Durée</span><span class="n"><span data-k="tripDur"></span></span></div>
+         <div class="stat"><span class="k">Dehors</span><span class="n"><span data-k="temp"></span></span></div>
+         <button class="stat stat--btn" data-panel="engine"><span class="k">Boîtier OBD</span><span class="t">${NATIVE ? 'Connecter' : 'Appli Android'}</span></button>`;
+    el.innerHTML = `<div class="car-head"><span class="chip ${live ? 'on' : ''}">${icon('bt')}<span>${live ? (L.demo ? 'Démo' : esc(L.obd.label || 'OBD')) : 'OBD hors ligne'}</span></span>
+        <span class="chip">${icon('engine')}<span>MiTo ${esc(engine().name)}</span></span></div>
+      <div class="car-speed">${t.layout === 'cr7' ? '<span class="cr7tag">CR<b>7</b></span>' : ''}${speed}${signHtml()}</div>
+      <div class="car-art" data-on="brake:brake">${carSvg()}${t.layout === 'cr7' ? '<span class="cr7stripe"></span>' : ''}</div>
+      <div class="car-stats">${stats}</div>
+      ${alertLine()}`;
+    bind(); tick(true);
+  }
+
+  /* ---------------------------------------------------------------- carte -- */
+  let map = null, meMk = null, follow = true, tiles = null, destMk = null, trace = null, lastFollow = 0, programmatic = false, userZoom = null;
+  function initMap() {
+    const LF = window.L, el = $('#map');
+    if (!el) return;
+    if (!LF) { el.innerHTML = '<p class="map-off">Carte indisponible</p>'; return; }
+    const c = S.lastPos || [45.4642, 9.19];
+    map = LF.map(el, { zoomControl: false, attributionControl: true, zoomSnap: 0.25, inertia: true, fadeAnimation: !REDUCE, zoomAnimation: !REDUCE }).setView(c, 15);
+    map.attributionControl.setPrefix('');
+    setTiles();
+    meMk = LF.marker(c, { icon: LF.divIcon({ className: 'me', html: '<i></i>', iconSize: [40, 40], iconAnchor: [20, 20] }), interactive: false, keyboard: false }).addTo(map);
+    trace = LF.polyline([], { color: getComputedStyle(document.documentElement).getPropertyValue('--acc').trim() || '#fff', weight: 4, opacity: 0.7, interactive: false }).addTo(map);
+    map.on('dragstart', () => { follow = false; $('#recenter').hidden = false; });
+    map.on('zoomend', () => { if (!programmatic) userZoom = { z: map.getZoom(), t: now() }; });
+    window.addEventListener('resize', () => setTimeout(() => map && map.invalidateSize(), 120));
+  }
+  function setTiles() {
+    if (!map) return;
+    const t = theme(), style = t.light ? 'rastertiles/voyager' : 'dark_all';
+    if (tiles) map.removeLayer(tiles);
+    tiles = window.L.tileLayer(`https://{s}.basemaps.cartocdn.com/${style}/{z}/{x}/{y}{r}.png`, { subdomains: 'abcd', maxZoom: 20, attribution: '© OpenStreetMap · © CARTO' }).addTo(map);
+    if (trace) trace.setStyle({ color: t.acc });
+  }
+  let lastTrace = 0, lastPosSave = 0;
+  function mapTick() {
+    if (!map) return;
+    const g = L.gps;
+    if (!g.lat) return;
+    const ll = [g.lat, g.lon];
+    meMk.setLatLng(ll);
+    const me = meMk.getElement();
+    if (me) { me.classList.toggle('moving', SM.speed > 3); const a = me.firstChild; if (a && g.brg >= 0) a.style.transform = `rotate(${g.brg}deg)`; }
+    if (follow && now() - lastFollow > 1000) {
+      lastFollow = now();
+      const z = userZoom && now() - userZoom.t < 30000 ? userZoom.z : SM.speed < 35 ? 16.5 : SM.speed < 75 ? 15.5 : 14.5;
+      programmatic = true;
+      map.setView(ll, z, { animate: !REDUCE, duration: 0.9, easeLinearity: 0.4 });
+      setTimeout(() => { programmatic = false; }, 1000);
+    }
+    if (S.cur && now() - lastTrace > 4000) { lastTrace = now(); trace.setLatLngs(S.cur.pts.map((p) => [p[0], p[1]])); }
+    else if (!S.cur && trace.getLatLngs().length) trace.setLatLngs([]);
+    if (now() - lastPosSave > 60000) { lastPosSave = now(); S.lastPos = [+g.lat.toFixed(4), +g.lon.toFixed(4)]; save(); }
+  }
+  function recenter() { follow = true; userZoom = null; lastFollow = 0; $('#recenter').hidden = true; mapTick(); }
+
+  /* destinations : recherche, Maison / Travail, récents, carburant */
+  let dest = null, searchTimer = 0, searchRes = [];
+  function placeLabel(p) { return p.name || 'Destination'; }
+  function setDest(p) {
+    dest = p;
+    if (map) {
+      if (destMk) map.removeLayer(destMk);
+      destMk = window.L.marker([p.lat, p.lon], { icon: window.L.divIcon({ className: 'dest-pin', html: '<i></i>', iconSize: [30, 40], iconAnchor: [15, 38] }) }).addTo(map);
+      follow = false; $('#recenter').hidden = false;
+      const g = L.gps;
+      if (g.lat) map.fitBounds([[g.lat, g.lon], [p.lat, p.lon]], { padding: [70, 70], maxZoom: 16, animate: !REDUCE });
+      else map.setView([p.lat, p.lon], 15, { animate: !REDUCE });
+    }
+    renderDest();
+  }
+  function renderDest() {
+    const d = $('#dest');
+    if (!dest) { d.hidden = true; d.innerHTML = ''; return; }
+    const g = L.gps, km = g.lat ? haversine([g.lat, g.lon], [dest.lat, dest.lon]) / 1000 : null;
+    d.innerHTML = `<div class="row between" style="align-items:flex-start"><div class="col fill" style="gap:2px"><span class="t ell">${esc(placeLabel(dest))}</span><span class="s ell">${esc(dest.sub || '')}${km != null ? ' · ' + nf(km, km < 10 ? 1 : 0) + ' km à vol d\'oiseau' : ''}</span></div><button class="icon-btn" data-act="clearDest" aria-label="Effacer">✕</button></div>
+      <div class="btns"><button class="btn primary" data-act="goWaze">${icon('route')}Y aller avec Waze</button><button class="btn" data-act="goMaps">Google Maps</button>
+      <button class="btn small" data-act="setHome">${icon('home')}Maison</button><button class="btn small" data-act="setWork">${icon('work')}Travail</button></div>`;
+    d.hidden = false;
+  }
+  function renderQuick() {
+    const q = $('#quick'); if (!q) return;
+    const P = S.places || {};
+    const chips = [];
+    chips.push(P.home ? `<button class="qchip" data-place="home">${icon('home')}Maison</button>` : `<button class="qchip ghost" data-act="defineHome">${icon('home')}Définir Maison</button>`);
+    if (P.work) chips.push(`<button class="qchip" data-place="work">${icon('work')}Travail</button>`);
+    chips.push(`<button class="qchip" data-act="cheapFuel">${icon('fuel')}Carburant</button>`);
+    (S.recents || []).slice(0, 2).forEach((r, i) => chips.push(`<button class="qchip" data-recent="${i}">${icon('trips')}<span class="ell">${esc(r.name)}</span></button>`));
+    q.innerHTML = chips.join('');
+  }
+  function navigate(app) {
+    if (!dest) return;
+    const r = (S.recents || []).filter((x) => !(Math.abs(x.lat - dest.lat) < 1e-4 && Math.abs(x.lon - dest.lon) < 1e-4));
+    r.unshift({ name: placeLabel(dest), sub: dest.sub || '', lat: dest.lat, lon: dest.lon });
+    S.recents = r.slice(0, 8); save(); renderQuick();
+    if (NATIVE) {
+      const used = call('nav', dest.lat, dest.lon, placeLabel(dest), app);
+      if (!used) toast('Installe Waze ou Google Maps sur l\'écran');
+      else if (app === 'waze' && used !== 'waze') toast('Waze introuvable : ouverture avec Google Maps');
+    } else {
+      window.open(app === 'maps' ? `https://www.google.com/maps/dir/?api=1&destination=${dest.lat},${dest.lon}` : `https://waze.com/ul?ll=${dest.lat},${dest.lon}&navigate=yes`, '_blank');
+    }
+  }
+  function searchSheet(mode) {
+    openSheet(mode === 'home' ? 'Adresse de la maison' : mode === 'work' ? 'Adresse du travail' : 'Où va-t-on ?', `<form class="searchbox" data-search="${mode || ''}"><span class="ic">${icon('search')}</span><input class="input" id="q" type="search" autocomplete="off" placeholder="Adresse, ville, lieu…" enterkeyhint="search"></form>
+      <div class="list" id="results">${recentHtml()}</div>`, 'search');
+    setTimeout(() => { const i = $('#q'); if (i) i.focus(); }, 80);
+  }
+  function recentHtml() {
+    const r = S.recents || [];
+    return r.length ? '<p class="k" style="margin:4px 0">Récents</p>' + r.map((x, i) => `<button class="li" data-recent="${i}"><span class="ic">${icon('trips')}</span><span class="col fill" style="gap:2px"><span class="t ell">${esc(x.name)}</span><span class="s ell">${esc(x.sub)}</span></span></button>`).join('') : '<p class="hint">Tape une adresse ou un lieu. La recherche passe par OpenStreetMap (internet nécessaire).</p>';
+  }
+  function runSearch(q, mode) {
+    const box = $('#results'); if (!box) return;
+    if (q.trim().length < 3) { box.innerHTML = recentHtml(); return; }
+    box.innerHTML = '<p class="hint">Recherche…</p>';
+    const g = L.gps;
+    const url = 'https://photon.komoot.io/api/?limit=8&lang=fr&q=' + encodeURIComponent(q) + (g.lat ? `&lat=${g.lat.toFixed(4)}&lon=${g.lon.toFixed(4)}` : '');
+    fetchJson(url, null, 9000).then((j) => {
+      searchRes = (j.features || []).map((f) => {
+        const p = f.properties || {}, c = (f.geometry || {}).coordinates || [];
+        const street = [p.housenumber, p.street].filter(Boolean).join(' ');
+        return { name: p.name || street || p.city || 'Lieu', sub: [p.name ? street : '', p.postcode, p.city || p.county].filter(Boolean).join(' · '), lat: c[1], lon: c[0] };
+      }).filter((x) => x.lat != null);
+      if (!$('#results')) return;
+      $('#results').innerHTML = searchRes.length ? searchRes.map((x, i) => {
+        const km = g.lat ? haversine([g.lat, g.lon], [x.lat, x.lon]) / 1000 : null;
+        return `<button class="li" data-result="${i}" data-mode="${mode || ''}"><span class="ic">${icon('route')}</span><span class="col fill" style="gap:2px"><span class="t ell">${esc(x.name)}</span><span class="s ell">${esc(x.sub)}</span></span>${km != null ? `<span class="s">${nf(km, km < 10 ? 1 : 0)} km</span>` : ''}</button>`;
+      }).join('') : '<p class="hint">Aucun résultat.</p>';
+    }).catch(() => { if ($('#results')) $('#results').innerHTML = '<p class="hint">Pas de connexion internet : la recherche d\'adresse est indisponible.</p>'; });
+  }
+
+  /* volume, icônes d'applis, téléphone */
+  let VOL = null, dialNum = '';
+  function readVolume(dir) { if (!NATIVE) return; try { VOL = JSON.parse(call('volume', dir || 0) || '{}'); } catch (e) {} const v = $('[data-volbar]'); if (v && VOL && VOL.max) v.style.transform = `scaleX(${(VOL.v / VOL.max).toFixed(3)})`; }
+  const ICON_CACHE = {};
+  let APPS = null;
+  function appsList() {
+    if (APPS) return APPS;
+    try { APPS = JSON.parse(call('apps') || '[]'); } catch (e) { APPS = []; }
+    return APPS;
+  }
+  function findApps(re) { try { return JSON.parse(call('findApps', re) || '[]'); } catch (e) { return []; } }
+  function loadIcons() {
+    const need = appsList().map((a) => a.pkg).filter((p) => !ICON_CACHE[p]);
+    [S.carplay.pkg, S.phoneApp && S.phoneApp.pkg, S.smsApp && S.smsApp.pkg].forEach((p) => { if (p && !ICON_CACHE[p] && !need.includes(p)) need.push(p); });
+    if (need.length && NATIVE) call('appIcons', need.join(','));
+  }
+  function appTile(a, attr) {
+    const ic = ICON_CACHE[a.pkg];
+    return `<button class="app" ${attr}="${esc(a.pkg)}" data-label="${esc(a.label)}"><span class="app__ic" data-appic="${esc(a.pkg)}" ${ic ? `style="background-image:url('${ic}')"` : ''}>${ic ? '' : esc((a.label || '?').slice(0, 1).toUpperCase())}</span><span class="app__t">${esc(a.label)}</span></button>`;
+  }
 
   const R = {
-    home() {
-      const t = theme(), svc = nextService();
-      const tripCard = `<div class="card col" style="gap:4px"><span class="k" data-k="tripLabel"></span><span class="n" data-k="trip"></span><span class="s" data-k="tripDur"></span></div>`;
-      const tempCard = `<div class="card col" style="gap:4px"><span class="k">Dehors</span><span class="n" data-k="temp"></span><span class="s">${L.weather || obdFresh() ? 'température' : 'en attente'}</span></div>`;
-      const svcCard = `<div class="card col" style="gap:4px"><span class="k">${esc(svc[0])}</span><span class="t">${esc(svc[1])}</span></div>`;
-      const obdMini = obdOn() ? `<div class="card col" style="gap:4px"><span class="k">Moteur</span><span class="n"><span data-k="rpm"></span> <span class="u">tr/min</span></span><span class="s">Eau <span data-k="ect"></span> °C</span></div>` : svcCard;
-      let h = '';
-      if (t.layout === 'analog') {
-        h = `<div class="home home-analog"><div class="col" style="gap:14px">${musicHtml(false)}${tripCard}</div>
-          ${gauge('spd', `<span class="big" style="font-size:clamp(48px,11vh,96px)" data-k="speed" data-on="over:over">0</span><span class="u">km/h</span>`)}
-          <div class="col" style="align-items:center;gap:12px">${signHtml()}<span class="s" data-k="limitRoad"></span><span class="n" data-k="temp"></span><span class="s">dehors</span></div>${alertLine()}${carplayTab()}</div>`;
-      } else if (t.layout === 'min') {
-        h = `<div class="home home-min"><div><div class="big" data-k="speed" data-on="over:over">0</div><div class="row" style="justify-content:center;margin-top:14px;gap:18px">${signHtml()}<span class="u">km/h</span><span class="n" data-k="temp"></span></div></div>${alertLine()}${carplayTab()}</div>`;
-      } else if (t.layout === 'cards') {
-        h = `<div class="home home-cards"><div class="card wide speedcard"><span class="k">Vitesse GPS</span>${speedBlock()}</div>
-          <div class="card col" style="justify-content:space-between"><span class="k">Limitation</span>${signHtml()}</div>
-          <div class="wide">${musicHtml(true)}</div>${obdMini}${alertLine()}${carplayTab()}</div>`;
-      } else if (t.layout === 'cr7') {
-        h = `<div class="home home-cr7"><div class="cr7"><span class="tag">CR<b>7</b></span><div style="text-align:center">${speedBlock()}</div><span class="stripe"></span></div>
-          <div class="strip3">${signHtml()}${musicHtml(false)}<div class="col" style="align-items:flex-end;gap:2px"><span class="n" data-k="temp"></span><span class="s">dehors</span></div></div>${alertLine()}${carplayTab()}</div>`;
-      } else {
-        h = `<div class="home home-digital"><div class="card speedcard"><div class="row between" style="align-items:flex-start"><span class="k">${obdOn() ? 'Vitesse' : 'Vitesse GPS'}</span>${signHtml()}</div>
-          ${speedBlock()}<div class="row s"><span data-k="trip"></span><span>·</span><span data-k="tripDur"></span></div></div>
-          <div class="side">${musicHtml(true)}<div class="infos">${tempCard}${obdMini}</div></div>${alertLine()}${carplayTab()}</div>`;
-      }
-      return h;
+    music() {
+      const m = L.media;
+      const sp = NATIVE ? findApps('spotify') : [];
+      const spPkg = sp.length ? sp[0].pkg : 'com.spotify.music';
+      const sources = NATIVE ? findApps('spotify|deezer|youtube music|qobuz|tidal|amazon music|soundcloud|radio|podcast|music|musique').filter((a) => a.launch && a.pkg !== spPkg) : [];
+      const quick = (S.spotQuick || []).map((q, i) => `<span class="qchip"><button data-spq="${i}">${icon('play')}${esc(q)}</button><button class="x" data-spdel="${i}" aria-label="Retirer">✕</button></span>`).join('');
+      return `<div class="music-pane">
+        <div class="mp-art" data-cover>${m.art ? '' : icon('music')}</div>
+        <div class="mp-info col">
+          <span class="k" data-k="mApp"></span>
+          <h2 class="mp-title" data-k="mTitle"></h2>
+          <p class="s mp-artist" data-k="mArtist"></p>
+          <button class="mp-prog" data-seek aria-label="Avancer dans le titre"><span class="bar-t"><i data-bar="music"></i></span><span class="row between s"><span data-k="mPos"></span><span data-k="mDur"></span></span></button>
+          <div class="mp-ctrls">${NATIVE || L.demo ? `<button class="icon-btn" data-media="prev" aria-label="Précédent">${icon('prev')}</button><button class="icon-btn play" data-media="toggle" data-play aria-label="Lecture ou pause">${icon('play')}</button><button class="icon-btn" data-media="next" aria-label="Suivant">${icon('next')}</button>` : '<p class="hint">Les commandes de lecture passent par l\'appli Android.</p>'}</div>
+          ${NATIVE ? `<div class="mp-vol"><button class="icon-btn" data-vol="-1" aria-label="Baisser le volume">−</button><span class="bar-t fill"><i data-volbar></i></span><button class="icon-btn" data-vol="1" aria-label="Monter le volume">+</button></div>` : ''}
+          ${NATIVE && !mediaOk() ? '<button class="btn small" data-act="mediaAccess">Autoriser l\'affichage du titre et de la pochette</button>' : ''}
+        </div></div>
+      <div class="grid two" style="margin-top:14px">
+        <div class="card col"><h3>Spotify</h3>
+          <form class="searchbox" data-spotify><span class="ic">${icon('search')}</span><input class="input" id="sp-q" type="search" placeholder="Artiste, titre, album, playlist…" enterkeyhint="go"><button class="btn primary" type="submit">Lancer</button></form>
+          <div class="chips">${quick}${m.title ? `<button class="qchip ghost" data-act="spAdd">${icon('star')}Garder « ${esc(m.artist || m.title)} »</button>` : ''}</div>
+          <div class="btns">${NATIVE ? `<button class="btn" data-open="${esc(spPkg)}">Ouvrir Spotify</button><button class="btn" data-split="${esc(spPkg)}">${icon('split')}À côté</button>` : '<span class="s">Spotify se lance depuis l\'appli Android.</span>'}</div>
+          ${NATIVE && !sp.length ? '<p class="hint">Spotify n\'est pas installé sur cet écran : installe-le depuis le Play Store, puis connecte-toi une fois.</p>' : '<p class="hint">Tape ce que tu veux écouter : Spotify le lance directement, puis Dash 955 revient à l\'écran.</p>'}</div>
+        <div class="card col"><h3>Autres sources</h3><div class="appgrid small">${sources.map((a) => appTile(a, 'data-open')).join('') || '<p class="hint">Aucune autre appli musique trouvée.</p>'}</div></div>
+      </div>`;
+    },
+
+    phone() {
+      const favs = S.favs || [];
+      const keys = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '*', '0', '#'];
+      const ph = S.phoneApp, sm = S.smsApp;
+      return `<div class="phone">
+        <div class="card dial"><div class="dial__num" data-dialnum>${esc(dialNum) || '<span class="s">Compose un numéro</span>'}</div>
+          <div class="pad">${keys.map((k) => `<button class="key" data-key="${k}">${k}</button>`).join('')}</div>
+          <div class="row" style="gap:10px"><button class="btn fill" data-act="dialDel">${icon('back')}</button><button class="btn primary fill call" data-act="dialCall">${icon('phone')}Appeler</button></div></div>
+        <div class="col" style="gap:14px">
+          <div class="card col"><div class="row between"><h3 style="margin:0">Favoris</h3><button class="btn small" data-act="favAdd">Ajouter</button></div>
+            <div class="list">${favs.map((f, i) => `<div class="li"><span class="ic">${icon('phone')}</span><span class="col fill" style="gap:2px"><span class="t ell">${esc(f.name)}</span><span class="s">${esc(f.num)}</span></span><button class="btn small primary" data-favcall="${i}">Appeler</button><button class="icon-btn" data-favdel="${i}" aria-label="Retirer">✕</button></div>`).join('') || '<p class="hint">Ajoute les numéros que tu appelles le plus.</p>'}</div></div>
+          <div class="card col"><h3>Téléphone de l'écran</h3>
+            <div class="btns">${NATIVE ? `<button class="btn" data-act="phoneApp">${icon('phone')}${ph ? esc(ph.label) : 'Appels Bluetooth'}</button><button class="btn" data-act="smsApp">${icon('msg')}${sm ? esc(sm.label) : 'Messages'}</button>` : '<span class="s">Disponible dans l\'appli Android.</span>'}</div>
+            <p class="hint">Les appels passent par le Bluetooth de l'écran, relié à ton iPhone. Appelle depuis ici ou ouvre l'appli téléphone de l'écran. Les messages restent dans cette appli : Android ne les partage pas avec les autres applis.</p></div>
+        </div></div>`;
+    },
+
+    apps() {
+      const list = appsList();
+      return `<div class="row" style="gap:12px;flex-wrap:wrap"><form class="searchbox fill" data-appfilter onsubmit="return false"><span class="ic">${icon('search')}</span><input class="input" id="app-q" type="search" placeholder="Rechercher une appli" autocomplete="off"></form>
+        <label class="row"><span class="s">Ouvrir à côté</span><span class="switch"><input type="checkbox" data-set="split" ${S.split ? 'checked' : ''}><span></span></span></label></div>
+        <div class="appgrid" id="appgrid">${list.map((a) => appTile(a, 'data-launch')).join('') || '<p class="hint">Les applis de l\'écran apparaissent ici dans l\'appli Android.</p>'}</div>`;
     },
 
     engine() {
@@ -775,8 +1035,10 @@
           <div class="field"><label for="f-cal">Correction conso (%)</label><input class="input" id="f-cal" type="number" step="1" min="50" max="150" value="${S.fuelCal || 100}" data-set="fuelCal"></div>
           <div class="field"><label for="f-crit">Vignette Crit'Air</label><select class="input" id="f-crit" data-set="critair">${['0', '1', '2', '3', '4', '5', 'aucune'].map((k) => opt(k, S.critair, k === 'aucune' ? 'Aucune' : k === '0' ? '0 (électrique)' : k)).join('')}</select></div></div></div>
         <div class="card col"><h3>Thème d'accueil · ${THEMES.length} thèmes</h3><div class="themes">${THEMES.map((t) => `<button type="button" data-theme="${t.id}" aria-pressed="${t.id === S.theme}" style="--tb:${t.bg};--tf:${t.fg};--ta:${t.acc}"><span>${t.name}</span><i></i></button>`).join('')}</div></div>
-        <div class="card col"><h3>CarPlay en un glissement</h3><p class="hint">Glisse vers la gauche sur l'accueil pour ouvrir l'appli de projection de ton boîtier ou autoradio (CarPlay, ZLink, AutoKit…).</p>
-          <div class="btns">${NATIVE ? `<button class="btn primary" data-act="pickCarplay">${S.carplay.pkg ? 'Appli : ' + esc(S.carplay.label) : 'Choisir l\'appli'}</button>${S.carplay.pkg ? '<button class="btn" data-act="carplay">Tester</button>' : ''}<button class="btn" data-act="homeApp">Dash 955 en écran d'accueil</button>` : '<span class="s">Disponible dans l\'appli Android.</span>'}</div></div>
+        <div class="card col"><h3>CarPlay en un glissement</h3><p class="hint">Le bouton CarPlay de la barre du bas, ou un glissement vers la gauche sur la voiture, ouvre l'appli de projection de l'écran. ZLink est choisi tout seul s'il est installé.</p>
+          <div class="btns">${NATIVE ? `<button class="btn primary" data-act="pickCarplay">${S.carplay.pkg ? 'Appli : ' + esc(S.carplay.label) : 'Choisir l\'appli'}</button>${S.carplay.pkg ? '<button class="btn" data-act="carplay">Tester</button>' : ''}<button class="btn" data-act="findZlink">Rechercher ZLink</button>` : '<span class="s">Disponible dans l\'appli Android.</span>'}</div>
+          ${NATIVE ? `<label class="row between"><span class="col" style="gap:2px"><span class="t">Ouvrir les applis à côté</span><span class="s">Écran partagé avec Dash 955 quand l'écran le permet (ZLink, Waze, Spotify…).</span></span><span class="switch"><input type="checkbox" data-set="split" ${S.split ? 'checked' : ''}><span></span></span></label>` : ''}</div>
+        ${NATIVE ? startupCard() : ''}
         ${NATIVE ? `<div class="card col"><h3>Musique</h3><p class="hint">Pour afficher le titre et la pochette de n'importe quelle appli musique, autorise « Dash 955 · titre et pochette » dans l'accès aux notifications.</p><div class="btns"><span class="pill ${mediaOk() ? 'ok' : 'warn'}">${mediaOk() ? 'Autorisé' : 'Pas encore autorisé'}</span><button class="btn small" data-act="mediaAccess">Ouvrir le réglage</button></div></div>` : ''}
         <div class="card col"><h3>Essai</h3><label class="row between"><span class="col" style="gap:2px"><span class="t">Mode démo</span><span class="s">Trajet simulé avec données moteur, pour essayer l'appli à l'arrêt.</span></span><span class="switch"><input type="checkbox" data-set="demo" ${S.demo ? 'checked' : ''}><span></span></span></label></div>
         <div class="card col"><h3>Mes données</h3><p class="hint">${S.trips.length} trajets · ${nf(S.kmTotal, 0)} km enregistrés. Tout reste sur l'appareil.</p><div class="btns"><button class="btn" data-act="export">Exporter</button><button class="btn" data-act="import">Importer</button><button class="btn danger" data-act="reset">Tout effacer</button></div></div>
@@ -893,6 +1155,35 @@
       <div class="list">${list.map((d) => `<button class="li" data-ledconnect="${esc(d.addr)}"><span class="ic ${d.led ? 'hot' : ''}">${icon('led')}</span><span class="col fill" style="gap:2px"><span class="t">${esc(d.name)}</span><span class="s">${d.led ? 'Ruban LED compatible' : 'Appareil Bluetooth'}</span></span></button>`).join('') || `<p class="hint">${L.ledScanning ? 'Recherche…' : 'Aucun ruban trouvé.'}</p>`}</div>
       <button class="btn" data-act="ledScan" ${L.ledScanning ? 'disabled' : ''}>${L.ledScanning ? 'Recherche…' : 'Relancer la recherche'}</button>`;
   }
+  function launchApp(pkg) { return S.split ? (call('launchSplit', pkg) || call('launch', pkg)) : call('launch', pkg); }
+  function dial(num) { if (!NATIVE) { location.href = 'tel:' + num; return; } if (!call('dial', num)) { toast('Pas d\'appli d\'appel : ouverture du téléphone Bluetooth'); A.phoneApp(); } }
+  function updDial() { const el = $('[data-dialnum]'); if (el) el.innerHTML = esc(dialNum) || '<span class="s">Compose un numéro</span>'; }
+  let pickKind = '';
+  function pickApp(kind, title, query) {
+    pickKind = kind;
+    openSheet(title, `<form class="searchbox" onsubmit="return false"><span class="ic">${icon('search')}</span><input class="input" id="pick-q" type="search" value="${esc(query || '')}" placeholder="Nom de l'appli" autocomplete="off"></form>
+      <div class="list" id="pick-list"></div>
+      <details class="hint"><summary>Saisir le nom du paquet</summary><div class="row" style="gap:8px;margin-top:8px"><input class="input" id="pick-pkg" placeholder="com.zjinnova.zlink"><button class="btn" data-act="pickPkg">Utiliser</button></div></details>`, 'pick');
+    renderPick();
+  }
+  function renderPick() {
+    const box = $('#pick-list'); if (!box) return;
+    const q = ($('#pick-q') || {}).value || '';
+    let list = [];
+    if (q.trim()) list = findApps(q.trim().replace(/[.*+?^${}()[\]\\]/g, (c) => (c === '|' ? c : '\\' + c)));
+    const all = appsList().filter((a) => !list.some((x) => x.pkg === a.pkg));
+    const rows = (arr, dim) => arr.map((a) => `<button class="li" data-pickapp="${esc(a.pkg)}" data-label="${esc(a.label)}" ${dim ? 'style="opacity:.75"' : ''}><span class="ic">${icon('apps')}</span><span class="col fill" style="gap:2px"><span class="t">${esc(a.label)}</span><span class="s">${esc(a.pkg)}${a.launch === false ? ' · sans icône de lancement' : ''}</span></span></button>`).join('');
+    box.innerHTML = (q.trim() ? (list.length ? '<p class="k" style="margin:6px 0">Trouvées</p>' + rows(list) : `<p class="hint">Aucune appli ne contient « ${esc(q)} ».</p>`) : '') + '<p class="k" style="margin:10px 0 4px">Toutes les applis</p>' + rows(all, true);
+  }
+  function startupCard() {
+    let st = {};
+    try { st = JSON.parse(call('startup') || '{}'); } catch (e) {}
+    return `<div class="card col"><h3>Démarrage et connexion</h3>
+      <label class="row between"><span class="col" style="gap:2px"><span class="t">Ouvrir Dash 955 au démarrage</span><span class="s">Quand l'écran de la voiture s'allume.</span></span><span class="switch"><input type="checkbox" data-set="autostart" ${st.autostart !== false ? 'checked' : ''}><span></span></span></label>
+      ${st.needOverlay && !st.overlay ? `<div class="row between" style="gap:10px;flex-wrap:wrap"><span class="s fill">Android demande une autorisation pour ouvrir l'appli tout seul : « Afficher par-dessus les autres applis ».</span><button class="btn small primary" data-act="overlay">Autoriser</button></div>` : ''}
+      <div class="row between" style="gap:10px;flex-wrap:wrap"><span class="s fill">Le plus fiable : faire de Dash 955 l'écran d'accueil. Il s'affiche alors à chaque allumage, et le bouton Accueil y revient.</span><button class="btn small" data-act="homeApp">Écran d'accueil</button></div>
+      <label class="row between"><span class="col" style="gap:2px"><span class="t">Connexion automatique au boîtier OBD</span><span class="s">Au démarrage, au réveil de l'écran et quand le Bluetooth revient. Nouvel essai toutes les 30 s.</span></span><span class="switch"><input type="checkbox" data-set="obdAutoPref" ${st.obdAuto !== false ? 'checked' : ''}><span></span></span></label></div>`;
+  }
   function appsSheet(pickFor) {
     let apps = [];
     try { apps = JSON.parse(call('apps') || '[]'); } catch (e) { apps = []; }
@@ -903,7 +1194,7 @@
 
   /* -------------------------------------------------------- actions -- */
   const A = {
-    obdAuto() { L.found = []; L.log = []; call('obdAuto'); toast('Recherche du boîtier…'); },
+    obdAuto() { L.found = []; L.log = []; L.userDetect = true; call('obdAuto'); toast('Recherche du boîtier…'); },
     revking() {
       if (!NATIVE) return toast('La connexion au boîtier se fait dans l\'appli Android');
       if (!INFO.btOn) call('enableBluetooth');
@@ -911,7 +1202,7 @@
       if (!L.found.length) A.revScan();
     },
     revScan() { L.scanning = true; L.found = []; call('obdScan'); renderRevking(); },
-    revAuto() { L.log = []; call('obdAuto'); closeSheet(); go('engine'); toast('Recherche du RevKing…'); },
+    revAuto() { L.log = []; L.userDetect = true; call('obdAuto'); closeSheet(); go('engine'); toast('Recherche du RevKing…'); },
     logShare() { const txt = 'Dash 955 · journal OBD\n' + (INFO.model || '') + '\n' + L.log.join('\n'); if (NATIVE) call('share', txt, 'Dash 955 · journal OBD'); },
     welcomeDemo() { S.demo = true; save(); startDemo(); closeSheet(); go('home'); },
     obdDevices() { openSheet('Boîtier OBD', '', 'devices'); renderDevices(); },
@@ -936,12 +1227,43 @@
     mediaAccess() { call('settings', 'media'); },
     carplay() {
       if (!NATIVE) return toast('CarPlay en un glissement : dans l\'appli Android');
-      if (!S.carplay.pkg) return appsSheet(true);
-      if (!call('launch', S.carplay.pkg)) { toast('Appli introuvable, choisis-la à nouveau'); appsSheet(true); }
+      if (!S.carplay.pkg) autoCarplay();
+      if (!S.carplay.pkg) return A.pickCarplay();
+      if (!launchApp(S.carplay.pkg)) { toast(S.carplay.label + ' introuvable, choisis-le à nouveau'); A.pickCarplay(); }
     },
-    pickCarplay() { appsSheet(true); },
-    apps() { appsSheet(false); },
+    pickCarplay() { pickApp('carplay', 'Appli CarPlay', 'zlink'); },
+    findZlink() {
+      S.carplay = { pkg: '', label: '' };
+      const z = autoCarplay();
+      if (z) { toast(z.label + ' sera ouvert par le bouton CarPlay'); render(); } else { toast('ZLink n\'est pas installé sous ce nom : cherche-le dans la liste'); A.pickCarplay(); }
+    },
+    apps() { openPanel('apps'); },
+    navSearch() { closePanel(); searchSheet(''); },
+    defineHome() { searchSheet('home'); },
+    recenter() { recenter(); },
+    clearDest() { dest = null; if (destMk && map) map.removeLayer(destMk); renderDest(); },
+    goWaze() { navigate('waze'); },
+    goMaps() { navigate('maps'); },
+    setHome() { if (dest) { S.places = Object.assign({}, S.places, { home: dest }); save(); renderQuick(); toast('Maison enregistrée'); } },
+    setWork() { if (dest) { S.places = Object.assign({}, S.places, { work: dest }); save(); renderQuick(); toast('Travail enregistré'); } },
+    cheapFuel() {
+      const st = L.stations && L.stations[0];
+      if (!st || st.lat == null) { fetchStations(true); toast('Recherche des stations…'); setTimeout(() => { const s2 = L.stations && L.stations[0]; if (s2 && s2.lat != null) setDest({ name: s2.name, sub: nf(s2.price, 3) + ' € · ' + S.fuelType, lat: s2.lat, lon: s2.lon }); }, 4000); return; }
+      setDest({ name: st.name, sub: nf(st.price, 3) + ' € · ' + S.fuelType, lat: st.lat, lon: st.lon });
+    },
+    dialDel() { dialNum = dialNum.slice(0, -1); updDial(); },
+    dialCall() { if (!dialNum) return toast('Compose un numéro'); dial(dialNum); },
+    favAdd() {
+      openSheet('Nouveau favori', `<div class="field"><label for="fv-n">Nom</label><input class="input" id="fv-n" autocomplete="off"></div><div class="field"><label for="fv-p">Numéro</label><input class="input" id="fv-p" type="tel" inputmode="tel" value="${esc(dialNum)}"></div><button class="btn primary" data-act="favGo">Enregistrer</button>`);
+      setTimeout(() => $('#fv-n') && $('#fv-n').focus(), 60);
+    },
+    favGo() { const n = $('#fv-n').value.trim(), num = $('#fv-p').value.trim(); if (num) { S.favs = (S.favs || []).concat([{ name: n || num, num }]); save(); } closeSheet(); },
+    phoneApp() { if (S.phoneApp && S.phoneApp.pkg && launchApp(S.phoneApp.pkg)) return; pickApp('phone', 'Appli téléphone de l\'écran', 'bluetooth|bt|phone|téléphone|dial|appel|call|hands'); },
+    smsApp() { if (S.smsApp && S.smsApp.pkg && launchApp(S.smsApp.pkg)) return; pickApp('sms', 'Appli messages de l\'écran', 'sms|messag|bluetooth|bt'); },
+    spAdd() { const m = L.media, q = (m.artist || m.title || '').trim(); if (!q) return; S.spotQuick = [q].concat((S.spotQuick || []).filter((x) => x !== q)).slice(0, 8); save(); render(); },
+    overlay() { call('settings', 'overlay'); },
     homeApp() { call('settings', 'home'); },
+    pickPkg() { const v = ($('#pick-pkg').value || '').trim(); if (!v) return; pickChosen(v, v); },
     setOdo() {
       const o = odoNow();
       openSheet('Kilométrage', `<div class="field"><label for="f-odo">Kilomètres au compteur de ta MiTo</label><input class="input" id="f-odo" type="number" inputmode="numeric" min="0" value="${o == null ? '' : Math.round(o)}"></div><button class="btn primary" data-act="odoGo">Enregistrer</button>`);
@@ -974,9 +1296,12 @@
     else if (key === 'ledOn') { S.led.on = v; ledApply(true); }
     else if (key === 'sportLed') { S.led.mode = v ? 'sport' : 'color'; ledApply(true); }
     else if (key === 'fuelType') { S.fuelType = v; L.stations = null; }
+    else if (key === 'split') { S.split = v; }
+    else if (key === 'autostart') { call('setAutoStart', !!v); return; }
+    else if (key === 'obdAutoPref') { call('setObdAuto', !!v); return; }
     else S[key] = v;
     save();
-    if (['engine', 'fuelType', 'demo'].includes(key)) render();
+    if (['engine', 'fuelType', 'demo'].includes(key)) { if (panelKind) render(); renderCar(); }
   }
 
   document.addEventListener('click', (e) => {
@@ -1000,10 +1325,45 @@
     if (d.ledconnect) { call('ledConnect', d.ledconnect); INFO.ledSaved = d.ledconnect; closeSheet(); return; }
     if (d.ledmode) { S.led.mode = d.ledmode; save(); render(); ledApply(true); return; }
     if (d.ledcolor) { S.led.color = d.ledcolor; if (S.led.mode === 'night' || S.led.mode === 'music') S.led.mode = 'color'; save(); render(); ledApply(true); return; }
-    if (d.pickapp) { S.carplay = { pkg: d.pickapp, label: d.label }; save(); closeSheet(); toast('Glisse vers la gauche sur l\'accueil pour l\'ouvrir'); return; }
-    if (d.launch) { call('launch', d.launch); closeSheet(); return; }
+    if (d.pickapp) { pickChosen(d.pickapp, d.label); return; }
+    if (d.launch) { if (!launchApp(d.launch)) toast('Impossible d\'ouvrir cette appli'); if (!$('#sheet').hidden) closeSheet(); return; }
+    if (d.panel) { openPanel(d.panel, VEH.includes(d.panel) && VEH.includes(panelKind) ? (VEH.indexOf(d.panel) > VEH.indexOf(panelKind) ? 1 : -1) : 0); return; }
+    if (d.open) { if (!call('launch', d.open)) toast('Appli introuvable'); return; }
+    if (d.split) { if (!call('launchSplit', d.split)) call('launch', d.split); return; }
+    if (d.vol) { readVolume(+d.vol); return; }
+    if (d.key) { if (dialNum.length < 20) dialNum += d.key; updDial(); return; }
+    if (d.favcall) { const f = (S.favs || [])[+d.favcall]; if (f) dial(f.num); return; }
+    if (d.favdel) { S.favs.splice(+d.favdel, 1); save(); render(); return; }
+    if (d.place) { const pl = (S.places || {})[d.place]; if (pl) setDest(pl); return; }
+    if (d.recent !== undefined && d.recent !== '') { const r = (S.recents || [])[+d.recent]; if (r) { if (sheetKind === 'search') closeSheet(); setDest(r); } return; }
+    if (d.result !== undefined) { const r = searchRes[+d.result]; if (!r) return; closeSheet(); if (d.mode === 'home' || d.mode === 'work') { S.places = Object.assign({}, S.places, { [d.mode]: r }); save(); renderQuick(); toast(d.mode === 'home' ? 'Maison enregistrée' : 'Travail enregistré'); } else setDest(r); return; }
+    if (d.spq !== undefined) { const q = (S.spotQuick || [])[+d.spq]; if (q) spotify(q); return; }
+    if (d.spdel !== undefined) { S.spotQuick.splice(+d.spdel, 1); save(); render(); return; }
+    if (t.matches('[data-seek]')) {
+      const m = L.media, r = t.getBoundingClientRect();
+      if (m.dur && NATIVE) { const f = clamp((e.clientX - r.left) / r.width, 0, 1); call('seek', Math.round(f * m.dur)); L.media = Object.assign({}, m, { pos: f * m.dur, at: now() }); }
+      return;
+    }
     if (d.svcdone) { const x = S.service.find((y) => y.id === d.svcdone); if (x) { x.lastDate = new Date().toISOString().slice(0, 10); const o = odoNow(); if (o != null) x.lastKm = Math.round(o); save(); render(); toast(x.name + ' : noté'); } return; }
     if (d.svcedit) return editService(d.svcedit);
+  });
+  function pickChosen(pkg, label) {
+    if (pickKind === 'phone') S.phoneApp = { pkg, label };
+    else if (pickKind === 'sms') S.smsApp = { pkg, label };
+    else { S.carplay = { pkg, label }; renderBar(); }
+    save(); closeSheet();
+    toast(pickKind === 'carplay' || !pickKind ? label + ' : bouton CarPlay de la barre du bas' : label + ' enregistré');
+  }
+  function spotify(q) {
+    if (!NATIVE) return toast('Spotify se lance depuis l\'appli Android');
+    const sp = findApps('spotify');
+    if (!call('playSearch', q, sp.length ? sp[0].pkg : '')) toast('Spotify n\'est pas installé sur cet écran');
+  }
+  document.addEventListener('submit', (e) => {
+    const f = e.target;
+    e.preventDefault();
+    if (f.matches('[data-spotify]')) { const q = ($('#sp-q').value || '').trim(); if (q) { spotify(q); S.spotQuick = [q].concat((S.spotQuick || []).filter((x) => x !== q)).slice(0, 8); save(); } }
+    else if (f.matches('[data-search]')) { clearTimeout(searchTimer); runSearch($('#q').value, f.dataset.search); }
   });
   document.addEventListener('change', (e) => {
     const el = e.target;
@@ -1011,6 +1371,9 @@
     if (el.matches('[data-ledpick]')) { S.led.color = el.value; save(); render(); ledApply(true); }
   });
   document.addEventListener('input', (e) => {
+    if (e.target.id === 'q') { const v = e.target.value, mode = e.target.closest('form').dataset.search; clearTimeout(searchTimer); searchTimer = setTimeout(() => runSearch(v, mode), 350); return; }
+    if (e.target.id === 'pick-q') { renderPick(); return; }
+    if (e.target.id === 'app-q') { const q = e.target.value.trim().toLowerCase(); $$('#appgrid .app').forEach((a) => { a.hidden = q && !a.dataset.label.toLowerCase().includes(q); }); return; }
     if (e.target.matches('[data-ledbright]')) { S.led.bright = +e.target.value; e.target.previousElementSibling.querySelector('span').textContent = S.led.bright; save(); ledApply(); if (NATIVE) call('ledBrightness', S.led.bright); }
   });
 
@@ -1038,22 +1401,43 @@
     };
   }
 
-  /* glissements : sur l'accueil, gauche = CarPlay, droite = applis ; ailleurs, onglet précédent / suivant */
+  /* glissements :
+     - panneau de la voiture : gauche / droite = onglet suivant / précédent
+     - en-tête d'un panneau : vers le bas = fermer
+     - zone de la voiture : gauche = CarPlay, droite = applis
+     - barre du bas : vers le haut = applis */
   let sw = null;
   document.addEventListener('touchstart', (e) => {
     if (!$('#sheet').hidden || e.touches.length > 1) return;
-    if (e.target.closest('input, select, textarea, .swatches, .dock, .plane')) return;
-    const t = e.touches[0]; sw = { x: t.clientX, y: t.clientY, t: now() };
+    const t = e.target;
+    if (t.closest('input, select, textarea, .swatches, #map, .leaflet-container, .plane, [data-seek]')) return;
+    const zone = t.closest('.panel__head') ? 'head' : t.closest('#panel') ? 'panel' : t.closest('#carpane') ? 'car' : t.closest('#bar') ? 'bar' : '';
+    if (!zone) return;
+    const p = e.touches[0]; sw = { x: p.clientX, y: p.clientY, t: now(), zone };
+  }, { passive: true });
+  document.addEventListener('touchmove', (e) => {
+    if (!sw || sw.zone !== 'head') return;
+    const dy = Math.max(0, e.touches[0].clientY - sw.y), c = $('.panel__card');
+    c.style.transition = 'none'; c.style.transform = `translate3d(0, ${dy}px, 0)`;
   }, { passive: true });
   document.addEventListener('touchend', (e) => {
     if (!sw) return;
-    const t = e.changedTouches[0], dx = t.clientX - sw.x, dy = t.clientY - sw.y, fast = now() - sw.t < 650;
+    const p = e.changedTouches[0], dx = p.clientX - sw.x, dy = p.clientY - sw.y, fast = now() - sw.t < 650, zone = sw.zone;
     sw = null;
-    if (!fast || Math.abs(dx) < 80 || Math.abs(dy) > Math.abs(dx) * 0.6) return;
-    const i = VIEWS.indexOf(view);
-    if (view === 'home') { if (dx < 0) A.carplay(); else if (NATIVE) A.apps(); return; }
-    if (dx < 0 && i < VIEWS.length - 1) go(VIEWS[i + 1], 1);
-    else if (dx > 0 && i > 0) go(VIEWS[i - 1], -1);
+    if (zone === 'head') {
+      const c = $('.panel__card'); c.style.transition = ''; c.style.transform = '';
+      if (dy > 90) closePanel();
+      return;
+    }
+    if (!fast) return;
+    if (zone === 'bar' && dy < -50 && Math.abs(dx) < 60) { openPanel('apps'); return; }
+    if (Math.abs(dx) < 80 || Math.abs(dy) > Math.abs(dx) * 0.6) return;
+    if (zone === 'car') { if (dx < 0) A.carplay(); else if (NATIVE) openPanel('apps'); return; }
+    if (zone === 'panel' && VEH.includes(view)) {
+      const i = VEH.indexOf(view);
+      if (dx < 0 && i < VEH.length - 1) openPanel(VEH[i + 1], 1);
+      else if (dx > 0 && i > 0) openPanel(VEH[i - 1], -1);
+    }
   }, { passive: true });
 
   let toastT = 0;
@@ -1085,12 +1469,12 @@
       if (!L.limit || now() - L.limit.t > 4000) L.limit = { v: demoT > 24 && demoT < 44 ? 80 : 50, t: now(), road: 'Exemple' };
       if (!L.weather) L.weather = { temp: 9, t: now() };
     }, 250);
-    renderStatus();
+    renderStatus(); renderBar(); renderCar();
   }
-  function stopDemo() { clearInterval(demoTimer); demoTimer = 0; L.demo = false; L.o = {}; L.oT = 0; L.media = { none: true }; L.limit = null; renderStatus(); }
+  function stopDemo() { clearInterval(demoTimer); demoTimer = 0; L.demo = false; L.o = {}; L.oT = 0; L.media = { none: true }; L.limit = null; renderStatus(); renderBar(); renderCar(); }
 
   /* ------------------------------------------------------------ boucle -- */
-  let last = performance.now(), acc1 = 0, accA = 0;
+  let last = performance.now(), acc1 = 0, accA = 0, accM = 0;
   function loop(t) {
     const dt = Math.min(0.5, (t - last) / 1000); last = t;
     const g = L.gps;
@@ -1113,7 +1497,8 @@
     ledApply(false);
     acc1 += dt; accA += dt;
     if (acc1 > 1) { acc1 = 0; renderStatus(); }
-    if (accA > 6 && view === 'home') { accA = 0; const al = $('[data-alert]') || $('.alert-line'); if (al) { const tmp = document.createElement('div'); tmp.innerHTML = alertLine(); al.replaceWith(tmp.firstElementChild); } }
+    if (accA > 6) { accA = 0; const al = $('#carpane [data-alert]'); if (al) { const tmp = document.createElement('div'); tmp.innerHTML = alertLine(); al.replaceWith(tmp.firstElementChild); } if (dest) renderDest(); }
+    accM += dt; if (accM > 0.5) { accM = 0; mapTick(); }
     requestAnimationFrame(loop);
   }
 
@@ -1125,13 +1510,24 @@
       H.gps({ lat: c.latitude, lon: c.longitude, spd: c.speed == null ? -1 : c.speed, brg: c.heading == null || isNaN(c.heading) ? -1 : c.heading, acc: c.accuracy, alt: c.altitude || 0, t: p.timestamp });
     }, (err) => { L.gpsErr = err.code === 1 ? 'perm' : 'nogps'; renderStatus(); }, { enableHighAccuracy: true, maximumAge: 1000, timeout: 15000 });
   }
+  /* ZLink (ou une autre appli CarPlay) choisi tout seul s'il est installé */
+  function autoCarplay() {
+    if (!NATIVE || S.carplay.pkg) return null;
+    const list = findApps('zlink|zjinnova|carplay|car ?link|autokit|carbit|phonelink|easyconnect').filter((a) => a.launch);
+    const z = list.find((a) => /zlink|zjinnova/i.test(a.label + ' ' + a.pkg)) || list.find((a) => /carplay/i.test(a.label)) || null;
+    if (z) { S.carplay = { pkg: z.pkg, label: z.label }; save(); renderBar(); }
+    return z;
+  }
   applyTheme();
-  renderDock();
   renderStatus();
-  render();
+  renderBar();
+  renderCar();
+  renderQuick();
+  initMap();
   if (S.demo || /[?&]demo=1/.test(location.search)) { S.demo = true; startDemo(); }
   if (!S.onboarded && !/[?&]demo=1/.test(location.search)) welcome();
   if (NATIVE) {
+    autoCarplay();
     call('obdResume');
     if (INFO.ledSaved) call('ledConnect', INFO.ledSaved);
     call('mediaRefresh');
@@ -1143,3 +1539,4 @@
   document.addEventListener('visibilitychange', () => { if (document.hidden) save(true); });
   requestAnimationFrame(loop);
 })();
+

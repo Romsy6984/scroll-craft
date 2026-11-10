@@ -181,6 +181,12 @@ public class MediaListener extends NotificationListenerService {
         }
     }
 
+    static void seek(long ms) {
+        MediaListener l = instance;
+        if (l == null || l.ctl == null) return;
+        l.ctl.getTransportControls().seekTo(Math.max(0, ms));
+    }
+
     private String appLabel(String pkg) {
         try {
             PackageManager pm = getPackageManager();

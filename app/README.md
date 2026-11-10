@@ -30,6 +30,33 @@ Copie l'APK à la racine d'une clé FAT32, branche-la sur l'écran, ouvre-le ave
 Un vrai CarPlay Apple, lui, n'installe aucune appli : il faut un boîtier ou un autoradio
 qui tourne sous Android.
 
+## L'interface
+
+Écran façon tableau de bord : la MiTo à gauche (vitesse, limitation, eau, turbo, conso,
+batterie, alertes), une grande carte à droite (position, recherche d'adresse, Maison, Travail,
+station la moins chère), et une barre en bas : **Voiture** (Moteur, Trajets, Route, LED,
+Entretien, Réglages), **mini-lecteur**, **Navigation**, **Musique**, **Téléphone**, **ZLink**,
+**Applis**, volume.
+
+- **Musique** : titre, pochette, avance dans le morceau, volume, et « Lancer sur Spotify » :
+  tu tapes un artiste ou une playlist, Spotify le joue et Dash 955 revient à l'écran.
+- **Navigation** : la recherche d'adresse (OpenStreetMap, internet nécessaire) pose la
+  destination sur la carte. « Y aller avec Waze » lance le guidage dans Waze, ou Google Maps.
+- **Téléphone** : clavier, favoris, et accès à l'appli Bluetooth de l'écran pour les appels et
+  les messages (Android ne partage pas les SMS avec les autres applis).
+- **Écran partagé** : « Ouvrir à côté » lance ZLink, Waze ou Spotify à côté de Dash 955 quand
+  l'écran le permet.
+- Les applis Spotify et Waze elles-mêmes ne peuvent pas être incrustées : Dash 955 les commande
+  et les ouvre.
+
+## Démarrage automatique
+
+- Le plus fiable : Dash 955 en **écran d'accueil** (bouton Accueil > Dash 955 > Toujours).
+- « Ouvrir Dash 955 au démarrage » (Réglages > Démarrage et connexion) l'ouvre à l'allumage. Sur
+  Android 10 et plus, il faut l'autorisation « Afficher par-dessus les autres applis ».
+- ZLink est choisi tout seul pour le bouton CarPlay (recherche « zlink » parmi toutes les applis
+  installées, même sans icône).
+
 ## Boîtier RevKing (RevKingz)
 
 Le RevKing est un boîtier OBD Bluetooth basse consommation (BLE) compatible ELM327 : son
@@ -37,6 +64,9 @@ fabricant le donne compatible avec les applis de diagnostic comme Car Scanner ou
 Son nom Bluetooth exact n'est pas publié, donc l'appli le reconnaît de deux façons : un nom
 contenant « rev », « king » ou « headz », ou les services Bluetooth des boîtiers ELM327 (FFF0,
 FFE0…).
+
+Après la première connexion, il se reconnecte tout seul au démarrage, au réveil de l'écran et
+quand le Bluetooth revient (nouvel essai toutes les 30 s sinon).
 
 **Moteur > Connecter mon RevKing** guide la connexion : boîtier branché, contact mis, appli
 RevHeadz du téléphone fermée (un boîtier BLE n'accepte qu'une connexion), puis Rechercher. Le

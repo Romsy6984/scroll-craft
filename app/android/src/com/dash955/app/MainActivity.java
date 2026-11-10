@@ -7,7 +7,17 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
+import android.content.pm.ApplicationInfo;
 import android.content.res.Configuration;
+import android.app.SearchManager;
+import android.graphics.Bitmap;
+import android.graphics.Canvas;
+import android.graphics.drawable.Drawable;
+import android.media.AudioManager;
+import android.provider.MediaStore;
+import android.util.Base64;
+import java.io.ByteArrayOutputStream;
+import java.util.regex.Pattern;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -72,6 +82,7 @@ public class MainActivity extends Activity {
         hub.attach(this, web);
         web.loadUrl("file:///android_asset/web/index.html");
         askPermissions();
+        hub.obd.resume();
     }
 
     private boolean external(String url) {
@@ -332,10 +343,70 @@ public class MainActivity extends Activity {
             return a.toString();
         }
 
+        /** Every installed app whose name or package matches, launcher or not (ZLink…). */
+        @JavascriptInterface
+        public String findApps(String regex) {
+            JSONArray a = new JSONArray();
+            try {
+                Pattern p = Pattern.compile(regex, Pattern.CASE_INSENSITIVE);
+                PackageManager pm = getPackageManager();
+                for (ApplicationInfo ai : pm.getInstalledApplications(0)) {
+                    String label = String.valueOf(pm.getApplicationLabel(ai));
+                    if (!p.matcher(label).find() && !p.matcher(ai.packageName).find()) continue;
+                    if (ai.packageName.equals(getPackageName())) continue;
+                    a.put(Hub.obj("label", label, "pkg", ai.packageName, "launch", intentFor(ai.packageName) != null));
+                }
+            } catch (Exception ignored) {
+            }
+            return a.toString();
+        }
+
+        /** App icons, sent in small batches as "appIcon" events. */
+        @JavascriptInterface
+        public void appIcons(final String pkgsCsv) {
+            new Thread(new Runnable() {
+                public void run() {
+                    PackageManager pm = getPackageManager();
+                    for (String pkg : pkgsCsv.split(",")) {
+                        if (pkg.length() == 0) continue;
+                        try {
+                            Drawable d = pm.getApplicationIcon(pkg);
+                            int s = 96;
+                            Bitmap b = Bitmap.createBitmap(s, s, Bitmap.Config.ARGB_8888);
+                            Canvas cv = new Canvas(b);
+                            d.setBounds(0, 0, s, s);
+                            d.draw(cv);
+                            ByteArrayOutputStream bo = new ByteArrayOutputStream();
+                            b.compress(Bitmap.CompressFormat.PNG, 100, bo);
+                            hub.emit("appIcon", Hub.obj("pkg", pkg, "icon",
+                                    "data:image/png;base64," + Base64.encodeToString(bo.toByteArray(), Base64.NO_WRAP)));
+                        } catch (Exception ignored) {
+                        }
+                    }
+                }
+            }, "icons").start();
+        }
+
+        private Intent intentFor(String pkg) {
+            PackageManager pm = getPackageManager();
+            Intent i = pm.getLaunchIntentForPackage(pkg);
+            if (i == null) i = pm.getLeanbackLaunchIntentForPackage(pkg);
+            if (i == null) {
+                Intent q = new Intent(Intent.ACTION_MAIN);
+                q.setPackage(pkg);
+                List<ResolveInfo> l = pm.queryIntentActivities(q, 0);
+                if (l != null && !l.isEmpty()) {
+                    i = new Intent(Intent.ACTION_MAIN);
+                    i.setClassName(pkg, l.get(0).activityInfo.name);
+                }
+            }
+            return i;
+        }
+
         @JavascriptInterface
         public boolean launch(String pkg) {
             try {
-                Intent i = getPackageManager().getLaunchIntentForPackage(pkg);
+                Intent i = intentFor(pkg);
                 if (i == null) return false;
                 i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                 startActivity(i);
@@ -343,6 +414,119 @@ public class MainActivity extends Activity {
             } catch (Exception e) {
                 return false;
             }
+        }
+
+        /** Opens the app next to Dash 955 when the unit supports split screen. */
+        @JavascriptInterface
+        public boolean launchSplit(String pkg) {
+            try {
+                Intent i = intentFor(pkg);
+                if (i == null) return false;
+                i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | 0x00001000 /* LAUNCH_ADJACENT */ | 0x08000000 /* MULTIPLE_TASK */);
+                startActivity(i);
+                return true;
+            } catch (Exception e) {
+                return false;
+            }
+        }
+
+        @JavascriptInterface
+        public boolean openUri(String uri, String pkg) {
+            try {
+                Intent i = new Intent(Intent.ACTION_VIEW, Uri.parse(uri));
+                if (pkg != null && pkg.length() > 0) i.setPackage(pkg);
+                i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                startActivity(i);
+                return true;
+            } catch (Exception e) {
+                return false;
+            }
+        }
+
+        /** Navigation: Waze first, then Google Maps, then any map app. Returns what opened. */
+        @JavascriptInterface
+        public String nav(double lat, double lon, String label, String app) {
+            String ll = lat + "," + lon;
+            if (!"maps".equals(app) && openUri("waze://?ll=" + ll + "&navigate=yes", "com.waze")) return "waze";
+            if (openUri("google.navigation:q=" + ll, "com.google.android.apps.maps")) return "maps";
+            if (openUri("geo:" + ll + "?q=" + ll + "(" + Uri.encode(label == null ? "" : label) + ")", null)) return "geo";
+            return "";
+        }
+
+        @JavascriptInterface
+        public boolean dial(String number) {
+            try {
+                Intent i = new Intent(Intent.ACTION_DIAL, Uri.parse("tel:" + Uri.encode(number)));
+                i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                startActivity(i);
+                return true;
+            } catch (Exception e) {
+                return false;
+            }
+        }
+
+        /** "Play X": hands a search to Spotify (or another music app), then comes back. */
+        @JavascriptInterface
+        public boolean playSearch(String query, String pkg) {
+            try {
+                Intent i = new Intent(MediaStore.INTENT_ACTION_MEDIA_PLAY_FROM_SEARCH);
+                i.putExtra(SearchManager.QUERY, query);
+                i.putExtra(MediaStore.EXTRA_MEDIA_FOCUS, "vnd.android.cursor.item/*");
+                if (pkg != null && pkg.length() > 0) i.setPackage(pkg);
+                i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                startActivity(i);
+                hub.ui.postDelayed(new Runnable() {
+                    public void run() {
+                        bringToFront();
+                    }
+                }, 2500);
+                return true;
+            } catch (Exception e) {
+                return false;
+            }
+        }
+
+        @JavascriptInterface
+        public void bringToFront() {
+            try {
+                Intent i = new Intent(MainActivity.this, MainActivity.class);
+                i.addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT | Intent.FLAG_ACTIVITY_NEW_TASK);
+                startActivity(i);
+            } catch (Exception ignored) {
+            }
+        }
+
+        @JavascriptInterface
+        public String volume(int dir) {
+            AudioManager am = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
+            if (am == null) return "{}";
+            if (dir != 0) am.adjustStreamVolume(AudioManager.STREAM_MUSIC,
+                    dir > 0 ? AudioManager.ADJUST_RAISE : AudioManager.ADJUST_LOWER, AudioManager.FLAG_SHOW_UI);
+            return Hub.obj("v", am.getStreamVolume(AudioManager.STREAM_MUSIC),
+                    "max", am.getStreamMaxVolume(AudioManager.STREAM_MUSIC)).toString();
+        }
+
+        @JavascriptInterface
+        public void seek(long ms) {
+            MediaListener.seek(ms);
+        }
+
+        @JavascriptInterface
+        public String startup() {
+            return Hub.obj("autostart", hub.prefs().getBoolean("autostart", true),
+                    "overlay", Build.VERSION.SDK_INT < 23 || Settings.canDrawOverlays(MainActivity.this),
+                    "needOverlay", Build.VERSION.SDK_INT >= 29,
+                    "obdAuto", hub.obd.auto()).toString();
+        }
+
+        @JavascriptInterface
+        public void setAutoStart(boolean on) {
+            hub.prefs().edit().putBoolean("autostart", on).apply();
+        }
+
+        @JavascriptInterface
+        public void setObdAuto(boolean on) {
+            hub.obd.setAuto(on);
         }
 
         @JavascriptInterface
@@ -353,6 +537,10 @@ public class MainActivity extends Activity {
             else if ("wifi".equals(which)) i = new Intent(Settings.ACTION_WIFI_SETTINGS);
             else if ("home".equals(which)) i = new Intent(Settings.ACTION_HOME_SETTINGS);
             else if ("media".equals(which)) i = new Intent("android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS");
+            else if ("overlay".equals(which)) {
+                i = new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION);
+                i.setData(Uri.parse("package:" + getPackageName()));
+            }
             else {
                 i = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
                 i.setData(Uri.parse("package:" + getPackageName()));

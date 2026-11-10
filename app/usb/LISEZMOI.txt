@@ -29,11 +29,37 @@ Alfa Romeo MiTo 1.6 JTDM 120 ch · boîtier OBD RevKing
    - En cas de souci, fais une capture du « Journal de connexion »
      (en bas de l'onglet Moteur).
 
-5. CARPLAY EN UN GLISSEMENT
-   Réglages > CarPlay en un glissement > choisis l'appli CarPlay de l'écran.
-   Ensuite, glisse vers la gauche sur l'accueil pour l'ouvrir.
+5. ZLINK (CARPLAY)
+   ZLink est trouvé tout seul : le bouton « ZLink » de la barre du bas l'ouvre.
+   S'il n'est pas trouvé : Voiture > Réglages > CarPlay > « Rechercher ZLink »,
+   ou « Choisir l'appli » et tape « zlink » dans la recherche.
 
-6. MISE À JOUR
+6. DÉMARRAGE AUTOMATIQUE
+   Le plus fiable : faire de Dash 955 l'écran d'accueil.
+   - Appuie sur le bouton Accueil de l'écran : Android propose de choisir
+     l'appli d'accueil. Choisis Dash 955 puis « Toujours ».
+   - Ou : Paramètres > Applications > Applications par défaut >
+     Application d'accueil > Dash 955.
+   - Ou dans Dash 955 : Voiture > Réglages > Démarrage et connexion >
+     « Écran d'accueil ».
+   En plus : « Ouvrir Dash 955 au démarrage » est activé par défaut. Sur
+   Android 10 et plus récent, touche « Autoriser » juste en dessous (Android
+   appelle ça « Afficher par-dessus les autres applis »).
+
+7. CONNEXION AUTOMATIQUE DU REVKING
+   Une fois connecté une première fois, le RevKing se reconnecte tout seul :
+   au démarrage, au réveil de l'écran et quand le Bluetooth revient.
+   Laisse-le branché dans la prise OBD. Il faut juste que l'appli RevHeadz
+   du téléphone ne soit pas connectée en même temps.
+
+8. SPOTIFY, WAZE, APPELS SANS PASSER PAR CARPLAY
+   - Installe Spotify et Waze sur l'écran (Play Store) et connecte-toi une fois.
+   - Donne internet à l'écran : partage de connexion de l'iPhone, ou Wi-Fi.
+   - Appaire l'iPhone en Bluetooth avec l'écran pour les appels.
+   Ensuite tout se pilote depuis Dash 955 : barre du bas > Musique,
+   Navigation, Téléphone.
+
+9. MISE À JOUR
    Même méthode : copie la nouvelle version de dash955.apk sur la clé et
    installe-la par-dessus. Tes trajets et réglages sont conservés.
 

@@ -1,7 +1,11 @@
 package com.dash955.app;
 
 import android.app.Activity;
+import android.bluetooth.BluetoothAdapter;
+import android.content.BroadcastReceiver;
 import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.os.Handler;
 import android.os.Looper;
@@ -39,6 +43,23 @@ public final class Hub {
         obd = new Obd(this);
         gps = new Gps(this);
         led = new Led(this);
+        IntentFilter f = new IntentFilter(BluetoothAdapter.ACTION_STATE_CHANGED);
+        f.addAction(Intent.ACTION_SCREEN_ON);
+        f.addAction(Intent.ACTION_USER_PRESENT);
+        c.registerReceiver(new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context ctx, Intent i) {
+                boolean btOn = BluetoothAdapter.ACTION_STATE_CHANGED.equals(i.getAction())
+                        && i.getIntExtra(BluetoothAdapter.EXTRA_STATE, -1) == BluetoothAdapter.STATE_ON;
+                if (btOn || !BluetoothAdapter.ACTION_STATE_CHANGED.equals(i.getAction())) {
+                    obd.kick();
+                    if (btOn) {
+                        String l = led.saved();
+                        if (l.length() > 0) led.connect(l);
+                    }
+                }
+            }
+        }, f);
     }
 
     void attach(Activity a, WebView w) {

@@ -87,9 +87,32 @@ final class Obd {
         restart();
     }
 
+    /** Automatic connection: the saved adapter, or a new detection if none is saved. */
+    boolean auto() {
+        return hub.prefs().getBoolean("obdAuto", true);
+    }
+
+    void setAuto(boolean on) {
+        hub.prefs().edit().putBoolean("obdAuto", on).apply();
+        if (on && !want) resume();
+    }
+
     void resume() {
+        if (want) return;
         String s = saved();
-        if (s.length() > 0 && !want) connect(s);
+        if (s.length() > 0) connect(s);
+        else if (auto()) connect("auto");
+    }
+
+    private volatile boolean sleeping;
+
+    /** Bluetooth just came on or the screen woke up: retry now instead of waiting. */
+    void kick() {
+        if (!want) {
+            if (auto()) resume();
+            return;
+        }
+        if (sleeping && !connected()) restart();
     }
 
     void disconnect() {
@@ -191,9 +214,18 @@ final class Obd {
                 if ("auto".equals(spec)) {
                     spec = detect(me);
                     if (spec == null) {
-                        want = false;
-                        status("notfound", "", "Aucun boîtier n'a répondu");
-                        break;
+                        status("notfound", "", auto() ? "Aucun boîtier n'a répondu, nouvel essai dans 30 s" : "Aucun boîtier n'a répondu");
+                        if (!auto()) {
+                            want = false;
+                            break;
+                        }
+                        sleeping = true;
+                        try {
+                            Thread.sleep(30000);
+                        } finally {
+                            sleeping = false;
+                        }
+                        continue;
                     }
                     target = spec;
                 } else {
@@ -210,10 +242,13 @@ final class Obd {
                 fails++;
                 log("erreur : " + msg(e));
                 status("lost", linkName, msg(e));
+                sleeping = true;
                 try {
                     Thread.sleep(Math.min(20000, 3000L * fails));
                 } catch (InterruptedException ie) {
                     break;
+                } finally {
+                    sleeping = false;
                 }
             }
         }
