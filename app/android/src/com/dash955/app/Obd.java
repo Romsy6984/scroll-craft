@@ -97,8 +97,20 @@ final class Obd {
         if (on && !want) resume();
     }
 
+    /** Dash 955 is in the background: the adapter is left free for RevHeadz / CarPlay. */
+    private volatile boolean paused;
+
+    void pause() {
+        paused = true;
+        if (want) disconnect();
+    }
+
+    void unpause() {
+        paused = false;
+    }
+
     void resume() {
-        if (want) return;
+        if (want || paused) return;
         String s = saved();
         if (s.length() > 0) connect(s);
         else if (auto()) connect("auto");
@@ -108,6 +120,7 @@ final class Obd {
 
     /** Bluetooth just came on or the screen woke up: retry now instead of waiting. */
     void kick() {
+        if (paused) return;
         if (!want) {
             if (auto()) resume();
             return;

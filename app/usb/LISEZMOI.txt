@@ -34,21 +34,27 @@ Alfa Romeo MiTo 1.6 JTDM 120 ch · boîtier OBD RevKing
    S'il n'est pas trouvé : Voiture > Réglages > CarPlay > « Rechercher ZLink »,
    ou « Choisir l'appli » et tape « zlink » dans la recherche.
 
-6. DÉMARRAGE AUTOMATIQUE
-   Le plus fiable : faire de Dash 955 l'écran d'accueil.
+6. CARPLAY COMME AVANT, DÉMARRAGE AUTOMATIQUE EN OPTION
+   Par défaut, rien ne change pour CarPlay : l'écran démarre comme avant,
+   ZLink s'ouvre quand l'iPhone se connecte, et Dash 955 s'ouvre quand tu
+   touches son icône. Quand tu passes sur CarPlay, Dash 955 libère le
+   RevKing pour que RevHeadz (son moteur) puisse s'y connecter.
+   Si un jour tu veux que Dash 955 s'ouvre tout seul :
+   Voiture > Réglages > Démarrage et connexion > « Ouvrir Dash 955 au
+   démarrage ». Autre solution, faire de Dash 955 l'écran d'accueil :
    - Appuie sur le bouton Accueil de l'écran : Android propose de choisir
      l'appli d'accueil. Choisis Dash 955 puis « Toujours ».
    - Ou : Paramètres > Applications > Applications par défaut >
      Application d'accueil > Dash 955.
    - Ou dans Dash 955 : Voiture > Réglages > Démarrage et connexion >
      « Écran d'accueil ».
-   En plus : « Ouvrir Dash 955 au démarrage » est activé par défaut. Sur
-   Android 10 et plus récent, touche « Autoriser » juste en dessous (Android
-   appelle ça « Afficher par-dessus les autres applis »).
+   Sur Android 10 et plus récent, l'ouverture au démarrage demande aussi
+   « Autoriser » (Android appelle ça « Afficher par-dessus les autres applis »).
 
 7. CONNEXION AUTOMATIQUE DU REVKING
-   Une fois connecté une première fois, le RevKing se reconnecte tout seul :
-   au démarrage, au réveil de l'écran et quand le Bluetooth revient.
+   Une fois connecté une première fois, le RevKing se reconnecte tout seul
+   dès que Dash 955 est à l'écran : à l'ouverture, au réveil de l'écran et
+   quand le Bluetooth revient.
    Laisse-le branché dans la prise OBD. Il faut juste que l'appli RevHeadz
    du téléphone ne soit pas connectée en même temps.
 

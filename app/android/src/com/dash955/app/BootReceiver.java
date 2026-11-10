@@ -16,9 +16,9 @@ public class BootReceiver extends BroadcastReceiver {
     @Override
     public void onReceive(Context c, Intent i) {
         Hub hub = Hub.get(c);
-        hub.obd.resume();
         SharedPreferences p = hub.prefs();
-        if (!p.getBoolean("autostart", true)) return;
+        if (!p.getBoolean("autostart", false)) return;
+        hub.obd.resume();
         if (Build.VERSION.SDK_INT >= 29 && !Settings.canDrawOverlays(c)) return;
         try {
             Intent a = new Intent(c, MainActivity.class);

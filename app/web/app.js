@@ -1179,9 +1179,11 @@
     let st = {};
     try { st = JSON.parse(call('startup') || '{}'); } catch (e) {}
     return `<div class="card col"><h3>Démarrage et connexion</h3>
-      <label class="row between"><span class="col" style="gap:2px"><span class="t">Ouvrir Dash 955 au démarrage</span><span class="s">Quand l'écran de la voiture s'allume.</span></span><span class="switch"><input type="checkbox" data-set="autostart" ${st.autostart !== false ? 'checked' : ''}><span></span></span></label>
-      ${st.needOverlay && !st.overlay ? `<div class="row between" style="gap:10px;flex-wrap:wrap"><span class="s fill">Android demande une autorisation pour ouvrir l'appli tout seul : « Afficher par-dessus les autres applis ».</span><button class="btn small primary" data-act="overlay">Autoriser</button></div>` : ''}
-      <div class="row between" style="gap:10px;flex-wrap:wrap"><span class="s fill">Le plus fiable : faire de Dash 955 l'écran d'accueil. Il s'affiche alors à chaque allumage, et le bouton Accueil y revient.</span><button class="btn small" data-act="homeApp">Écran d'accueil</button></div>
+      <p class="hint">Par défaut, rien ne change pour CarPlay : l'écran démarre comme avant, ZLink s'ouvre quand l'iPhone se connecte, et Dash 955 s'ouvre quand tu le choisis.</p>
+      <label class="row between"><span class="col" style="gap:2px"><span class="t">Ouvrir Dash 955 au démarrage</span><span class="s">Désactivé : CarPlay garde la main au démarrage.</span></span><span class="switch"><input type="checkbox" data-set="autostart" ${st.autostart ? 'checked' : ''}><span></span></span></label>
+      <label class="row between"><span class="col" style="gap:2px"><span class="t">Libérer le RevKing quand je passe sur CarPlay</span><span class="s">RevHeadz (son moteur) peut alors s'y connecter depuis l'iPhone. Dash 955 le reprend quand tu reviens.</span></span><span class="switch"><input type="checkbox" data-set="releaseObd" ${st.releaseObd !== false ? 'checked' : ''}><span></span></span></label>
+      ${st.autostart && st.needOverlay && !st.overlay ? `<div class="row between" style="gap:10px;flex-wrap:wrap"><span class="s fill">Android demande une autorisation pour ouvrir l'appli tout seul : « Afficher par-dessus les autres applis ».</span><button class="btn small primary" data-act="overlay">Autoriser</button></div>` : ''}
+      <div class="row between" style="gap:10px;flex-wrap:wrap"><span class="s fill">En option : faire de Dash 955 l'écran d'accueil. Il remplace alors l'accueil de l'autoradio (CarPlay reste accessible par le bouton ZLink).</span><button class="btn small" data-act="homeApp">Écran d'accueil</button></div>
       <label class="row between"><span class="col" style="gap:2px"><span class="t">Connexion automatique au boîtier OBD</span><span class="s">Au démarrage, au réveil de l'écran et quand le Bluetooth revient. Nouvel essai toutes les 30 s.</span></span><span class="switch"><input type="checkbox" data-set="obdAutoPref" ${st.obdAuto !== false ? 'checked' : ''}><span></span></span></label></div>`;
   }
   function appsSheet(pickFor) {
@@ -1299,6 +1301,7 @@
     else if (key === 'split') { S.split = v; }
     else if (key === 'autostart') { call('setAutoStart', !!v); return; }
     else if (key === 'obdAutoPref') { call('setObdAuto', !!v); return; }
+    else if (key === 'releaseObd') { call('setReleaseObd', !!v); return; }
     else S[key] = v;
     save();
     if (['engine', 'fuelType', 'demo'].includes(key)) { if (panelKind) render(); renderCar(); }
@@ -1383,6 +1386,7 @@
       <div class="field"><label for="w-engine">1. Ta motorisation</label><select class="input" id="w-engine" data-set="engine">${Object.keys(ENGINES).map((k) => `<option value="${k}" ${k === e ? 'selected' : ''}>${ENGINES[k].name}</option>`).join('')}</select></div>
       ${NATIVE ? `<div class="field"><label>2. Ton boîtier OBD</label><button class="btn" data-act="revking">Connecter mon RevKing</button></div>
       <div class="field"><label>3. CarPlay en un glissement</label><button class="btn" data-act="pickCarplay">Choisir l'appli CarPlay</button></div>` : '<p class="hint">Sur iPhone, la vitesse GPS, les trajets, la route et l\'entretien marchent ici. Le boîtier OBD se connecte avec l\'appli Android.</p>'}
+      <p class="hint">CarPlay ne change pas : l'écran démarre comme avant et le bouton ZLink, en bas, le rouvre à tout moment.</p>
       <div class="btns"><button class="btn primary" data-close>C'est parti</button><button class="btn" data-act="welcomeDemo">Essayer en démo</button></div>`, 'welcome');
     S.onboarded = true; save();
   }

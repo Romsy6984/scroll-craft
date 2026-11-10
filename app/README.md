@@ -49,11 +49,15 @@ Entretien, Réglages), **mini-lecteur**, **Navigation**, **Musique**, **Téléph
 - Les applis Spotify et Waze elles-mêmes ne peuvent pas être incrustées : Dash 955 les commande
   et les ouvre.
 
-## Démarrage automatique
+## CarPlay comme avant, démarrage automatique en option
 
-- Le plus fiable : Dash 955 en **écran d'accueil** (bouton Accueil > Dash 955 > Toujours).
-- « Ouvrir Dash 955 au démarrage » (Réglages > Démarrage et connexion) l'ouvre à l'allumage. Sur
-  Android 10 et plus, il faut l'autorisation « Afficher par-dessus les autres applis ».
+- Par défaut, rien ne change pour CarPlay : l'écran démarre comme avant, ZLink s'ouvre quand
+  l'iPhone se connecte, Dash 955 s'ouvre quand tu le choisis.
+- Quand Dash 955 passe en arrière-plan (CarPlay à l'écran), il libère le RevKing pour que
+  RevHeadz puisse s'y connecter, et le reprend au retour (réglable).
+- « Ouvrir Dash 955 au démarrage » (Réglages > Démarrage et connexion) est désactivé par défaut.
+  Sur Android 10 et plus, il demande l'autorisation « Afficher par-dessus les autres applis ».
+- En option : Dash 955 en **écran d'accueil** (bouton Accueil > Dash 955 > Toujours).
 - ZLink est choisi tout seul pour le bouton CarPlay (recherche « zlink » parmi toutes les applis
   installées, même sans icône).
 

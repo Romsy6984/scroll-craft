@@ -112,6 +112,19 @@ public class MainActivity extends Activity {
     }
 
     @Override
+    protected void onStart() {
+        super.onStart();
+        hub.obd.unpause();
+        hub.obd.resume();
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        if (hub.prefs().getBoolean("releaseObd", true)) hub.obd.pause();
+    }
+
+    @Override
     protected void onResume() {
         super.onResume();
         immersive();
@@ -513,7 +526,8 @@ public class MainActivity extends Activity {
 
         @JavascriptInterface
         public String startup() {
-            return Hub.obj("autostart", hub.prefs().getBoolean("autostart", true),
+            return Hub.obj("autostart", hub.prefs().getBoolean("autostart", false),
+                    "releaseObd", hub.prefs().getBoolean("releaseObd", true),
                     "overlay", Build.VERSION.SDK_INT < 23 || Settings.canDrawOverlays(MainActivity.this),
                     "needOverlay", Build.VERSION.SDK_INT >= 29,
                     "obdAuto", hub.obd.auto()).toString();
@@ -522,6 +536,11 @@ public class MainActivity extends Activity {
         @JavascriptInterface
         public void setAutoStart(boolean on) {
             hub.prefs().edit().putBoolean("autostart", on).apply();
+        }
+
+        @JavascriptInterface
+        public void setReleaseObd(boolean on) {
+            hub.prefs().edit().putBoolean("releaseObd", on).apply();
         }
 
         @JavascriptInterface
