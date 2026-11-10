@@ -438,6 +438,9 @@ body { font-feature-settings: "cv11", "ss01"; }
   .mods__note { margin-top: 0.55rem; font-size: 0.72rem; }
 
   .mito__grid { grid-template-columns: minmax(0, 1fr); }
+  .engines table { font-size: 0.84rem; }
+  .engines th, .engines td { padding-right: 0.45rem; }
+  .engines tbody th { white-space: normal; min-width: 6.6rem; }
   .hero__copy > .hero__lede { margin-top: 1.25rem; }
   .themes__dots { gap: 5px; }
   .themes__dots button { width: 20px; height: 20px; }
