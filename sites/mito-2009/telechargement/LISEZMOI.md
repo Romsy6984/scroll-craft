@@ -1,7 +1,4 @@
 # Fichier de l'application
 
-Dépose ici le fichier de l'application sous le nom `dash955.apk`.
-
-Les boutons « Télécharger l'application » du site pointent vers
-`telechargement/dash955.apk`. Pour utiliser un autre nom ou un lien externe, change la
-valeur `fichier` en haut de `index.html`.
+`dash955.apk` est l'appli Android, compilée par `app/build.sh` (qui la recopie ici à chaque
+compilation). Les boutons « Télécharger l'application » du site pointent dessus.

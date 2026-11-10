@@ -11,24 +11,25 @@ référence (12 sans boîtier OBD, 7 avec boîtier), adaptées à la MiTo de 200
 | `dash.css` | Le design (couleurs, écrans, mise en page mobile) |
 | `dash.js` | Les écrans animés, les thèmes, le sélecteur DNA, le formulaire |
 | `scrollcraft.js` / `.css` | Le moteur de scroll (ne pas modifier) |
-| `telechargement/` | Dépose ici le fichier de l'application |
+| `telechargement/dash955.apk` | L'appli Android, compilée depuis `app/` |
+| `app/` | La version web de l'appli (iPhone, navigateur) |
 
-## Brancher le fichier de l'application
+## Le fichier de l'application
 
-Deux façons, au choix :
+L'APK est déjà là : `telechargement/dash955.apk`, recompilé par `app/build.sh`. Les deux
+boutons « Télécharger l'application » pointent dessus. Mode d'emploi de l'appli :
+[`app/README.md`](../../app/README.md).
 
-1. **Le plus simple** : dépose ton fichier dans `telechargement/` sous le nom
-   `dash955.apk`. Les deux boutons « Télécharger l'application » pointent déjà dessus.
-2. **Fichier hébergé ailleurs** (Google Drive, GitHub Releases, etc.) : dans
-   `index.html`, remplace la valeur de `fichier` :
+Pour héberger le fichier ailleurs (Google Drive, GitHub Releases, etc.), remplace la valeur
+de `fichier` dans `index.html` :
 
-   ```js
-   window.DASH955 = {
-     fichier: "https://ton-lien-vers-le-fichier.apk",
-     version: "1.0",
-     android: "Android 8 ou plus récent"
-   };
-   ```
+```js
+window.DASH955 = {
+  fichier: "https://ton-lien-vers-le-fichier.apk",
+  version: "1.0",
+  android: "Android 5 ou plus récent"
+};
+```
 
 Tant que le fichier est introuvable sur le serveur, le bouton affiche « Le fichier
 arrive très bientôt » au lieu d'une erreur 404.

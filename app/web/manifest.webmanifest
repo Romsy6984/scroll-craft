@@ -1,0 +1,16 @@
+{
+  "name": "Dash 955 · MiTo",
+  "short_name": "Dash 955",
+  "description": "Écran d'accueil et suivi de trajets pour Alfa Romeo MiTo 2009.",
+  "lang": "fr",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0b0c0e",
+  "theme_color": "#0b0c0e",
+  "icons": [
+    { "src": "img/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "img/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

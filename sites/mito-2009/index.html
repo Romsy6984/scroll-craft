@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Dash 955 · l'écran d'accueil de ta Alfa Romeo MiTo 2009</title>
-<meta name="description" content="Application gratuite pour autoradio Android, pensée pour l'Alfa Romeo MiTo de 2009 : 13 thèmes, vitesse GPS, musique, trajets, LED, alertes. Avec un boîtier OBD : régime, turbo, conso réelle, g, batterie.">
+<meta name="description" content="Application gratuite pour autoradio Android, pensée pour l'Alfa Romeo MiTo de 2009 : 14 thèmes, vitesse GPS, musique, trajets, LED, alertes. Avec un boîtier OBD : régime, turbo, conso réelle, g, batterie.">
 <meta name="theme-color" content="#0c0d0f">
 <meta property="og:title" content="Dash 955 · pour Alfa Romeo MiTo 2009">
 <meta property="og:description" content="L'écran d'accueil de ta MiTo. Gratuit sans boîtier, toutes les données avec un boîtier OBD.">
@@ -25,7 +25,7 @@
   window.DASH955 = {
     fichier: "telechargement/dash955.apk",
     version: "1.0",
-    android: "Android 8 ou plus récent"
+    android: "Android 5 ou plus récent"
   };
 </script>
 </head>
@@ -73,7 +73,7 @@
 
       <div class="hero__unit">
         <div class="hu" data-screen="hero" data-view="home"></div>
-        <div class="themes" role="group" aria-label="13 thèmes d'accueil">
+        <div class="themes" role="group" aria-label="14 thèmes d'accueil">
           <p class="themes__name"><span class="themes__k">Thème</span> <span data-theme-name>Nuit</span></p>
           <div class="themes__dots" data-theme-dots></div>
         </div>
@@ -95,7 +95,7 @@
             <span class="pill">Gratuit</span>
           </div>
           <ul class="feats" role="list">
-            <li><button type="button" class="feat" data-view="themes" data-icon="themes"><span class="feat__t">13 thèmes d'accueil</span><span class="sr" data-detail>Compteur analogique, numérique, minimal, version jour ou nuit : 13 écrans d'accueil au choix, changeables à tout moment.</span></button></li>
+            <li><button type="button" class="feat" data-view="themes" data-icon="themes"><span class="feat__t">14 thèmes d'accueil</span><span class="sr" data-detail>Compteur analogique, numérique, minimal, version jour ou nuit, et un thème Ronaldo : 14 écrans d'accueil au choix, changeables à tout moment.</span></button></li>
             <li><button type="button" class="feat" data-view="carplay" data-icon="carplay"><span class="feat__t">CarPlay en un glissement</span><span class="sr" data-detail>Un glissement vers la gauche ouvre l'appli de projection de ton autoradio. La MiTo 2009 n'a pas CarPlay d'origine : c'est l'autoradio Android qui l'apporte.</span></button></li>
             <li><button type="button" class="feat" data-view="music" data-icon="music"><span class="feat__t">Musique + pochette</span><span class="sr" data-detail>Le titre en cours et sa pochette, quelle que soit l'appli musique que tu utilises sur l'autoradio.</span></button></li>
             <li><button type="button" class="feat" data-view="speed" data-icon="speed"><span class="feat__t">Vitesse (GPS)</span><span class="sr" data-detail>La vitesse vient du GPS de l'autoradio, sans rien brancher. Ton compteur affiche toujours un peu plus : c'est normal, il est réglé pour ne jamais sous-estimer.</span></button></li>
@@ -108,7 +108,7 @@
             <li><button type="button" class="feat" data-view="service" data-icon="service"><span class="feat__t">Entretien · rappels</span><span class="sr" data-detail>Vidange, distribution, contrôle technique, pneus hiver : l'appli te prévient avant l'échéance. Intervalles pré-réglés selon ta motorisation, à ajuster d'après ton carnet d'entretien.</span></button></li>
             <li><button type="button" class="feat" data-view="body" data-icon="body"><span class="feat__t">Portes · feux · marche arrière*</span><span class="sr" data-detail>Une porte ouverte, les feux allumés, la marche arrière enclenchée : tout s'affiche sur la silhouette de la MiTo, 3 portes et hayon.</span></button></li>
           </ul>
-          <p class="mods__note">* Selon le faisceau et le décodeur CAN (canbox) livrés avec ton autoradio Android.</p>
+          <p class="mods__note">* Ces infos viennent du décodeur CAN (canbox) de l'autoradio, que la plupart des modèles ne partagent pas avec les applis : pas encore gérées par la version 1.0.</p>
         </div>
       </div>
     </div>
@@ -198,11 +198,11 @@
             <li><button type="button" class="feat" data-view="conso" data-icon="conso"><span class="feat__t">Conso réelle + coût de chaque trajet</span><span class="sr" data-detail>Consommation instantanée et moyenne calculées sur les données moteur, et le coût de chaque trajet au prix de ton carburant.</span></button></li>
             <li><button type="button" class="feat" data-view="gauges" data-icon="gauges"><span class="feat__t">Régime · couple · eau</span><span class="sr" data-detail>Régime moteur, couple estimé et température d'eau, en direct.</span></button></li>
             <li><button type="button" class="feat" data-view="g" data-icon="g"><span class="feat__t">Virages en g · freinages</span><span class="sr" data-detail>La force en virage et au freinage, en g, avec les maximums de chaque trajet.</span></button></li>
-            <li><button type="button" class="feat" data-view="signals" data-icon="signals"><span class="feat__t">Clignotants · frein à main</span><span class="sr" data-detail>Clignotants et frein à main à l'écran. Sur la MiTo, ces infos passent par le réseau carrosserie (B-CAN, broches 1 et 9 de la prise OBD) : prends un boîtier qui le lit.</span></button></li>
+            <li><button type="button" class="feat" data-view="signals" data-icon="signals"><span class="feat__t">Clignotants · frein à main</span><span class="sr" data-detail>Sur la MiTo, clignotants et frein à main passent par le réseau carrosserie (B-CAN, broches 1 et 9 de la prise OBD), qu'un boîtier ELM327 standard ne lit pas. Pas encore gérés par la version 1.0.</span></button></li>
             <li><button type="button" class="feat" data-view="battery" data-icon="battery"><span class="feat__t">Batterie · voyants</span><span class="sr" data-detail>Tension de la batterie en direct (autour de 14 V moteur tournant, 12,6 V à l'arrêt) et lecture des codes défaut quand un voyant s'allume.</span></button></li>
             <li><button type="button" class="feat" data-view="cold" data-icon="cold"><span class="feat__t">Moteur froid en °C · turbo</span><span class="sr" data-detail>Tant que l'eau est sous 70 °C, l'écran te rappelle de ménager le moteur. Pression de turbo en bar sur les 1.4 TB, MultiAir TB et JTDM.</span></button></li>
           </ul>
-          <p class="mods__note">Boîtier : un ELM327 Bluetooth suffit pour le moteur. Pour clignotants, frein à main et portes, choisis un modèle compatible B-CAN.</p>
+          <p class="mods__note">Boîtier : un ELM327 en Bluetooth, Bluetooth basse consommation ou Wi-Fi. L'appli le détecte toute seule.</p>
         </div>
       </div>
     </div>
@@ -216,10 +216,10 @@
           <h2 class="steps__title">Installé en cinq minutes.</h2>
           <p class="sc-body">Sur ton autoradio Android ou une tablette fixée au tableau de bord.</p>
         </li>
-        <li class="step"><span class="step__n">1</span><h3>Télécharge le fichier</h3><p>Depuis le navigateur de l'autoradio, ou sur ton ordinateur puis une clé USB.</p></li>
+        <li class="step"><span class="step__n">1</span><h3>Télécharge le fichier</h3><p>Depuis le navigateur de ton boîtier CarPlay Android ou de l'autoradio, ou sur ton ordinateur puis une clé USB.</p></li>
         <li class="step"><span class="step__n">2</span><h3>Installe-le</h3><p>Ouvre le fichier APK. Android demande d'autoriser les applications inconnues : accepte pour cette installation.</p></li>
         <li class="step"><span class="step__n">3</span><h3>Fais-en ton accueil</h3><p>Choisis Dash 955 comme écran d'accueil. Autorise la localisation (vitesse) et l'accès aux notifications (titre et pochette).</p></li>
-        <li class="step"><span class="step__n">4</span><h3>Branche le boîtier</h3><p>En option. Prise OBD à gauche du volant, appairage Bluetooth depuis l'appli, puis choix de ta motorisation.</p></li>
+        <li class="step"><span class="step__n">4</span><h3>Branche le boîtier</h3><p>En option. Prise OBD à gauche du volant, contact mis, puis « Détecter mon boîtier » dans l'onglet Moteur.</p></li>
         <li class="step"><span class="step__n">5</span><h3>Roule</h3><p>Ton premier récap 3D t'attend à l'arrivée. Les réglages se font à l'arrêt.</p></li>
       </ol>
     </div>
@@ -253,7 +253,8 @@
         </fieldset>
         <output class="setup__out" data-setup-out aria-live="polite"></output>
         <a class="btn btn--wide" data-download href="telechargement/dash955.apk" download>Télécharger l'application</a>
-        <p class="setup__meta" data-file-meta>Gratuit · fichier APK · Android 8 ou plus récent</p>
+        <p class="setup__meta" data-file-meta>Gratuit · fichier APK · Android 5 ou plus récent</p>
+        <p class="setup__meta">Sur iPhone : <a class="link" href="app/index.html">la version web</a> (GPS, trajets, route, entretien, sans boîtier OBD).</p>
       </form>
     </div>
     <footer class="foot sc-wrap">

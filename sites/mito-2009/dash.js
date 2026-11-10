@@ -89,7 +89,8 @@
     { name: 'Ardoise',    layout: 'cards',   bg: '#141a21', fg: '#e9eef3', soft: '#8897a6', card: '#1e2731', acc: '#8fb3d9' },
     { name: 'Tunnel',     layout: 'min',     bg: '#060607', fg: '#a8a59f', soft: '#62605b', card: '#0f0f11', acc: '#c9463d' },
     { name: 'Circuit',    layout: 'analog',  bg: '#0e0f0a', fg: '#f3f3ea', soft: '#909181', card: '#1a1b14', acc: '#e8d23a' },
-    { name: 'Brume',      layout: 'digital', bg: '#d8dadc', fg: '#16181b', soft: '#565a60', card: '#eef0f2', acc: '#2d6fd6', light: true }
+    { name: 'Brume',      layout: 'digital', bg: '#d8dadc', fg: '#16181b', soft: '#565a60', card: '#eef0f2', acc: '#2d6fd6', light: true },
+    { name: 'Ronaldo',    layout: 'cr7',     bg: '#0a0a0a', fg: '#ffffff', soft: '#9a9a9a', card: '#141414', acc: '#e4002b' }
   ];
   var themeIdx = 0;
   var dna = 'n';
@@ -219,6 +220,16 @@
         '<div class="col" style="align-items:center;gap:2cqw">' + signHtml('width:12cqw;font-size:4.4cqw;border-width:1.4cqw') +
           '<span class="s">Limitation</span><span class="n" data-b="out">11°</span><span class="s">dehors</span></div></div>';
     }
+    if (th.layout === 'cr7') {
+      return '<div style="height:100%;display:grid;grid-template-rows:1fr auto;gap:1.6cqw">' +
+        '<div class="c" style="display:grid;place-items:center;position:relative;overflow:hidden">' +
+        '<span style="position:absolute;right:6%;bottom:-14%;font-weight:800;font-size:46cqw;line-height:.8;color:transparent;-webkit-text-stroke:1px rgba(255,255,255,0.09)">7</span>' +
+        '<span style="position:absolute;left:2.2cqw;top:1.8cqw;font-weight:800;letter-spacing:.12em;font-size:1.9cqw">CR<span style="color:#e4002b">7</span></span>' +
+        '<div style="position:relative"><span class="big" style="font-size:19cqw" data-b="v">0</span> <span class="u">km/h</span></div>' +
+        '<span style="position:absolute;left:0;right:0;bottom:0;height:0.7cqw;background:linear-gradient(90deg,#00843d 0 40%,#e4002b 40% 100%)"></span></div>' +
+        '<div class="row" style="gap:2cqw">' + signHtml('width:8cqw;font-size:3cqw;border-width:1cqw') + musicCard(false) +
+        '<div class="col" style="gap:0.4cqw;text-align:right"><span class="n" data-b="out">11°</span><span class="s">dehors</span></div></div></div>';
+    }
     if (th.layout === 'min') {
       return '<div class="home-min" style="height:100%"><div>' +
         '<div class="big" data-b="v">0</div><div class="row" style="justify-content:center;margin-top:3cqw;gap:3cqw">' +
@@ -257,7 +268,7 @@
     themes: {
       html: function (sc) {
         return homeHtml(sc.theme) + '<span class="chip on" style="position:absolute;left:50%;top:-5.6cqw;translate:-50% 0;padding:0.7cqw 1.8cqw;font-size:1.7cqw">' +
-          'Thème ' + (sc.cycle + 1) + ' sur 13 · ' + sc.theme.name + '</span>';
+          'Thème ' + (sc.cycle + 1) + ' sur ' + THEMES.length + ' · ' + sc.theme.name + '</span>';
       },
       upd: function (sc) {
         homeUpd(sc);
@@ -800,7 +811,7 @@
     items.push(engine.belt ? 'Rappel de courroie de distribution activé, à caler sur ton carnet.' : 'Chaîne de distribution : pas de rappel de courroie.');
     if (box) {
       items.push(engine.turbo ? 'Pression de turbo affichée en bar.' : 'Moteur atmosphérique : pas de jauge de turbo.');
-      items.push('Clignotants et frein à main : boîtier compatible B-CAN nécessaire.');
+      items.push('Clignotants et frein à main : pas encore gérés (réseau carrosserie B-CAN).');
     } else {
       items.push('Les 7 options moteur s\'ajoutent dès que tu branches un boîtier OBD.');
     }
