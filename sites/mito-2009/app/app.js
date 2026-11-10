@@ -116,9 +116,9 @@
 
   /* ------------------------------------------------------------ store -- */
   const DEF = {
-    v: 1, engine: '14tb-155', fuelType: 'SP95-E10', fuelPrice: 1.85, critair: '2', theme: 'nuit',
+    v: 1, engine: '16jtdm-120', fuelType: 'Gazole', fuelPrice: 1.75, critair: '3', theme: 'nuit', onboarded: false,
     carplay: { pkg: '', label: '' }, odo: { base: null, atKm: 0 }, kmTotal: 0, trips: [], cur: null,
-    service: presetService('14tb-155'),
+    service: presetService('16jtdm-120'),
     led: { mode: 'color', color: '#ff3b2f', bright: 80, on: true }, sportLed: true, demo: false, seen: {}, fuelCal: 100,
   };
   let S = load();
@@ -153,6 +153,9 @@
     speed: 0, speedSrc: '', accel: 0, latG: 0, fuelRate: null, dtc: null, demo: false, found: [], ledFound: [],
   };
   let lastSpeed = null, lastBrg = null;
+  /* displayed values, eased every frame so numbers and needles glide */
+  const SM = { speed: 0, rpm: 0, accel: 0, latG: 0, boost: 0, tq: 0, ect: 40, rail: 0 };
+  L.log = [];
 
   function onSpeedSample(v, t) {
     if (lastSpeed && t > lastSpeed.t) {
@@ -195,8 +198,14 @@
       renderStatus();
     },
     obdSupported(d) { L.pids = d.pids || []; refreshIf(['engine']); },
-    obdFound(d) { if (!L.found.some((x) => x.addr === d.addr)) L.found.push(d); if (sheetKind === 'devices') renderDevices(); },
-    obdScanDone() { L.scanning = false; if (sheetKind === 'devices') renderDevices(); },
+    obdLog(d) {
+      L.log.push(hhmm(d.t) + '  ' + d.l);
+      if (L.log.length > 120) L.log.splice(0, L.log.length - 120);
+      const el = $('[data-log]');
+      if (el) { el.textContent = L.log.slice(-40).join('\n'); el.scrollTop = el.scrollHeight; }
+    },
+    obdFound(d) { if (!L.found.some((x) => x.addr === d.addr)) L.found.push(d); if (sheetKind === 'devices') renderDevices(); else if (sheetKind === 'revking') renderRevking(); },
+    obdScanDone() { L.scanning = false; if (sheetKind === 'devices') renderDevices(); else if (sheetKind === 'revking') renderRevking(); },
     dtc(d) { L.dtc = d.codes || []; refreshIf(['engine']); },
     dtcCleared(d) { toast(d.ok ? 'Codes effacés' : "Effacement refusé (moteur tournant ?)"); },
     media(d) {
@@ -233,6 +242,7 @@
   function fuelRateRaw() {
     const o = L.o, e = engine();
     if (!obdFresh()) return null;
+    if (o.fuelRate != null) return o.fuelRate;
     let maf = o.maf;
     if (maf == null && o.map != null && o.rpm != null) {
       const T = (o.iat != null ? o.iat : 20) + 273.15;
@@ -461,10 +471,25 @@
   }
 
   function renderDock() {
-    $('#dock').innerHTML = VIEWS.map((v) => `<button type="button" data-go="${v}" ${v === view ? 'aria-current="page"' : ''}>${icon(ICONS[v])}<span>${LABELS[v]}</span></button>`).join('');
+    const d = $('#dock');
+    if (!d.children.length) d.innerHTML = '<span class="dock__pill" aria-hidden="true"></span>' + VIEWS.map((v) => `<button type="button" data-go="${v}">${icon(ICONS[v])}<span>${LABELS[v]}</span></button>`).join('');
+    $$('button', d).forEach((b) => { if (b.dataset.go === view) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current'); });
+    movePill();
   }
+  function movePill() {
+    const d = $('#dock'), b = $('button[aria-current]', d), p = $('.dock__pill', d);
+    if (!b || !p) return;
+    p.style.width = b.offsetWidth + 'px'; p.style.height = b.offsetHeight + 'px';
+    p.style.transform = `translate3d(${b.offsetLeft}px, ${b.offsetTop}px, 0)`;
+  }
+  window.addEventListener('resize', () => requestAnimationFrame(movePill));
+  let statusKey = '';
   function renderStatus() {
     const o = L.obd.state;
+    const key = [o, L.demo, L.led.state, L.gpsErr, !!(L.gps.t && now() - L.gps.t < 5000), outsideTemp()].join('|');
+    const clock = $('#status [data-k="clock"]');
+    if (key === statusKey && clock) { clock.textContent = hhmm(); return; }
+    statusKey = key;
     const obdCls = o === 'connected' ? 'on' : ['connecting', 'detect', 'scan', 'sleep'].includes(o) ? 'wait' : o === 'lost' ? 'bad' : '';
     const t = outsideTemp();
     $('#status').innerHTML = `<div class="grp"><b data-k="clock">${hhmm()}</b><span>${t != null ? t + ' °C' : ''}</span></div>
@@ -473,20 +498,26 @@
       ${NATIVE || L.demo ? `<span class="ind ${L.demo ? 'on' : obdCls}"><i></i>OBD</span>` : ''}
       ${NATIVE ? `<span class="ind ${L.led.state === 'connected' ? 'on' : ''}"><i></i>LED</span><button class="btn small" data-act="apps" style="min-height:32px">${icon('apps').replace('<svg', '<svg style="width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2"')}Applis</button>` : ''}</div>`;
   }
-  function go(v) {
+  function go(v, dir) {
     if (!VIEWS.includes(v)) return;
-    view = v; renderDock(); render();
+    if (v === view) { $('#view').scrollTo({ top: 0, behavior: 'smooth' }); return; }
+    const from = VIEWS.indexOf(view);
+    view = v; renderDock();
+    render(dir || (VIEWS.indexOf(v) > from ? 1 : -1));
     if (v === 'route') fetchStations(false);
     if (v === 'engine' && NATIVE && L.obd.state === 'connected' && L.dtc == null) call('obdReadDtc');
     $('#view').scrollTop = 0;
   }
   function refreshIf(list) { if (list.includes(view) && $('#sheet').hidden) render(); }
-  function render() {
-    const fn = R[view];
-    $('#view').innerHTML = fn ? fn() : '';
+  function render(dir) {
+    const fn = R[view], el = $('#view');
+    el.innerHTML = '<div class="page">' + (fn ? fn() : '') + '</div>';
+    if (dir && !REDUCE) el.firstElementChild.classList.add(dir > 0 ? 'enter-next' : 'enter-prev');
     bind();
     tick(true);
   }
+  const REDUCE = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const haptic = (ms = 7) => { try { if (navigator.vibrate) navigator.vibrate(ms); } catch (e) {} };
 
   /* gauge */
   function polar(r, a) { const t = (a * Math.PI) / 180; return [50 + r * Math.cos(t), 50 + r * Math.sin(t)]; }
@@ -500,29 +531,32 @@
   /* bindings: text (data-k), bars (data-bar), gauges (data-g), toggles (data-on) */
   const F = {
     clock: () => hhmm(),
-    speed: () => String(Math.round(L.speed)),
+    speed: () => String(Math.round(SM.speed)),
     limit: () => (L.limit && L.limit.v ? String(L.limit.v) : '–'),
     temp: () => { const t = outsideTemp(); return t == null ? '–' : t + '°'; },
     trip: () => (S.cur ? nf(S.cur.dist, 1) + ' km' : S.trips[0] ? nf(S.trips[0].dist, 1) + ' km' : '0,0 km'),
     tripDur: () => (S.cur ? dur(S.cur.dur) : S.trips[0] ? dur(S.trips[0].dur) : '–'),
     tripLabel: () => (S.cur ? 'Trajet en cours' : S.trips[0] ? 'Dernier trajet' : 'Trajet'),
-    rpm: () => (L.o.rpm == null || !obdFresh() ? '–' : nf(Math.round(L.o.rpm / 10) * 10)),
+    rpm: () => (L.o.rpm == null || !obdFresh() ? '–' : nf(Math.round(SM.rpm / 10) * 10)),
     tq: () => { const t = torque(); return t == null || !obdFresh() ? '–' : String(Math.round(t)); },
     ect: () => (L.o.ect == null || !obdFresh() ? '–' : String(Math.round(L.o.ect))),
-    gacc: () => nf(Math.max(0, L.accel / 9.81), 2),
+    gacc: () => nf(Math.max(0, SM.accel / 9.81), 2),
+    rail: () => (L.o.rail == null || !obdFresh() ? '–' : nf(SM.rail / 100)),
+    egr: () => (L.o.egr == null || !obdFresh() ? '–' : nf(L.o.egr)),
+    fuelSrc: () => (L.o.fuelRate != null && obdFresh() ? 'Débit de carburant donné par le calculateur.' : engine().diesel ? 'Estimée pour un diesel (débit d\'air et charge).' : 'Calculée sur le débit d\'air du moteur.'),
     inst: () => { if (L.fuelRate == null) return '–'; return L.speed > 5 ? nf(Math.min((L.fuelRate / L.speed) * 100, 39.9), 1) : nf(L.fuelRate, 1); },
     instU: () => (L.speed > 5 || L.fuelRate == null ? 'L/100 km' : "L/h à l'arrêt"),
     avg: () => { const c = S.cur; return c && c.hasFuel && c.dist > 0.1 ? nf((c.fuel / c.dist) * 100, 1) : '–'; },
     cost: () => { const c = S.cur; return c && c.hasFuel ? nf(c.fuel * price(), 2) + ' €' : '–'; },
     fuelL: () => (S.cur && S.cur.hasFuel ? nf(S.cur.fuel, 2) + ' L' : '–'),
-    lat: () => nf(Math.abs(L.latG), 2) + ' g',
-    brk: () => nf(Math.max(0, -L.accel / 9.81), 2) + ' g',
+    lat: () => nf(Math.abs(SM.latG), 2) + ' g',
+    brk: () => nf(Math.max(0, -SM.accel / 9.81), 2) + ' g',
     mlat: () => nf(S.cur ? S.cur.maxLat : 0, 2), mbrk: () => nf(S.cur ? Math.max(0, S.cur.maxBrk) : 0, 2),
     volt: () => { const v = L.o.volt != null ? L.o.volt : L.o.cmv; return v == null ? '–' : nf(v, 1); },
     voltS: () => { const v = L.o.volt != null ? L.o.volt : L.o.cmv; if (v == null) return 'Tension lue par le boîtier'; if (v >= 13.2) return 'Charge correcte · alternateur actif'; if (v >= 12.4) return 'Batterie correcte, moteur arrêté'; return 'Tension faible : batterie à vérifier'; },
     mil: () => (L.o.mil == null ? '–' : L.o.mil ? 'Allumé' : 'Éteint'),
     dtcCount: () => (L.o.dtcCount == null ? '–' : String(L.o.dtcCount)),
-    boost: () => { const b = boost(); return b == null || !obdFresh() ? '–' : nf(Math.max(0, b), 2); },
+    boost: () => { const b = boost(); return b == null || !obdFresh() ? '–' : nf(Math.max(0, SM.boost), 2); },
     coldMsg: () => { const e = L.o.ect; if (e == null || !obdFresh()) return 'Température d\'eau lue par le boîtier'; return e < 70 ? 'Moteur froid : ménage-le, pas de hauts régimes avant 70 °C' : 'Moteur chaud : tout le moteur est dispo'; },
     oil: () => (L.o.oil == null ? '' : 'Huile ' + Math.round(L.o.oil) + ' °C'),
     gear: () => '',
@@ -535,14 +569,15 @@
     inst: () => (L.fuelRate == null ? 0 : L.speed > 5 ? (L.fuelRate / L.speed) * 100 / 25 : 0.05),
     volt: () => { const v = L.o.volt != null ? L.o.volt : L.o.cmv; return v == null ? 0 : (v - 11.5) / 3.2; },
     ect: () => (L.o.ect == null ? 0 : (L.o.ect - 30) / 80),
-    boost: () => { const b = boost(); return b == null ? 0 : b / 1.4; },
+    boost: () => (boost() == null ? 0 : SM.boost / 1.6),
+    rail: () => (L.o.rail == null ? 0 : SM.rail / 160000),
     music: () => { const m = L.media; if (!m.dur) return 0; const pos = m.playing ? m.pos + (now() - (m.at || m.rx)) * (m.speed || 1) : m.pos; return pos / m.dur; },
   };
   const G = {
-    spd: () => L.speed / 200,
-    rpm: () => (L.o.rpm || 0) / (engine().diesel ? 5000 : 7000),
-    tq: () => (torque() || 0) / (engine().tq * 1.05),
-    ect: () => ((L.o.ect == null ? 40 : L.o.ect) - 40) / 90,
+    spd: () => SM.speed / 200,
+    rpm: () => SM.rpm / (engine().diesel ? 5000 : 7000),
+    tq: () => SM.tq / (engine().tq * 1.05),
+    ect: () => (SM.ect - 40) / 90,
   };
   const C = {
     over: () => L.limit && L.limit.v && L.speed > L.limit.v + 1,
@@ -568,8 +603,8 @@
         const ang = 135 + f * 270, p = polar(30, ang), q = polar(42, ang);
         b.n.setAttribute('x1', p[0].toFixed(2)); b.n.setAttribute('y1', p[1].toFixed(2)); b.n.setAttribute('x2', q[0].toFixed(2)); b.n.setAttribute('y2', q[1].toFixed(2));
       } else if (b.t === 'c' && b.f) b.el.classList.toggle(b.c, !!b.f());
-      else if (b.t === 's') { const on = Math.round(clamp(L.accel / 9.81 / 0.3, 0, 1) * b.kids.length); b.kids.forEach((k, i) => k.classList.toggle('on', i < on)); }
-      else if (b.t === 'ball') { b.dot.style.left = (50 - clamp(L.latG / 0.6, -1, 1) * 44).toFixed(1) + '%'; b.dot.style.top = (50 + clamp(L.accel / 9.81 / 0.6, -1, 1) * 44).toFixed(1) + '%'; }
+      else if (b.t === 's') { const on = Math.round(clamp(SM.accel / 9.81 / 0.3, 0, 1) * b.kids.length); if (b.on !== on) { b.on = on; b.kids.forEach((k, i) => k.classList.toggle('on', i < on)); } }
+      else if (b.t === 'ball') { const w = b.el.clientWidth; b.dot.style.transform = `translate3d(${(-clamp(SM.latG / 0.6, -1, 1) * 0.44 * w).toFixed(1)}px, ${(clamp(SM.accel / 9.81 / 0.6, -1, 1) * 0.44 * w).toFixed(1)}px, 0)`; }
     }
   }
 
@@ -579,7 +614,7 @@
     const m = L.media, art = m.art ? `style="background-image:url('${m.art}')"` : '';
     const ctrls = NATIVE ? `<div class="ctrls"><button class="icon-btn" data-media="prev" aria-label="Précédent">${icon('prev')}</button><button class="icon-btn" data-media="toggle" aria-label="Lecture ou pause" data-play>${icon(m.playing ? 'pause' : 'play')}</button><button class="icon-btn" data-media="next" aria-label="Suivant">${icon('next')}</button></div>` : '';
     const access = NATIVE && !mediaOk() ? `<button class="btn small" data-act="mediaAccess">Autoriser</button>` : '';
-    return `<div class="card music" data-music><div class="cover" ${art} data-cover style="width:${big ? 104 : 84}px">${m.art ? '' : icon('music')}</div>
+    return `<div class="card music" data-music><div class="cover" ${art} data-cover style="width:${big ? 104 : 84}px;height:${big ? 104 : 84}px">${m.art ? '' : icon('music')}</div>
       <div class="col fill" style="gap:4px"><span class="k">${esc(L.media.app || 'Musique')}</span><span class="t ell" data-k="mTitle"></span><span class="s ell" data-k="mArtist"></span>
       <div class="bar-t" style="margin-top:6px"><i data-bar="music"></i></div>${ctrls}${access}</div></div>`;
   }
@@ -643,7 +678,7 @@
       } else {
         const btns = st.state === 'connected' || L.demo
           ? `<button class="btn" data-act="obdDisconnect">Déconnecter</button><button class="btn" data-act="obdDevices">Autre appareil</button>`
-          : `<button class="btn primary" data-act="obdAuto">Détecter mon boîtier</button><button class="btn" data-act="obdDevices">Choisir un appareil</button><button class="btn" data-act="obdWifi">Boîtier Wi-Fi</button>`;
+          : `<button class="btn primary" data-act="revking">Connecter mon RevKing</button><button class="btn" data-act="obdAuto">Détection automatique</button><button class="btn" data-act="obdDevices">Choisir un appareil</button><button class="btn" data-act="obdWifi">Boîtier Wi-Fi</button>`;
         conn = `<div class="card col"><div class="conn"><span class="ic ${live ? 'hot' : ''}">${icon('bt')}</span><div class="col fill" style="gap:2px">
           <span class="state">${L.demo ? 'Démo : trajet simulé' : esc(STATES[st.state] || st.state)}${st.label && !L.demo ? ' · ' + esc(st.label) : ''}</span>
           <span class="s">${esc(L.demo ? 'Les valeurs ci-dessous sont simulées.' : st.info || (st.state === 'off' ? 'Branche le boîtier dans la prise OBD (sous le volant, à gauche, derrière la trappe), mets le contact, puis lance la détection.' : ''))}</span></div></div>
@@ -660,7 +695,7 @@
         ${mod('conso', 'Conso réelle + coût de chaque trajet', `<div><span class="n" data-k="inst"></span> <span class="u" data-k="instU"></span></div><div class="bar-t"><i data-bar="inst"></i></div>
           <div class="row between"><div class="col" style="gap:2px"><span class="k">Moyenne</span><span class="t"><span data-k="avg"></span> L/100</span></div>
           <div class="col" style="gap:2px"><span class="k">Carburant</span><span class="t" data-k="fuelL"></span></div><div class="col" style="gap:2px;text-align:right"><span class="k">Coût</span><span class="t acc" data-k="cost"></span></div></div>`,
-          na((e.diesel ? 'Estimée pour un diesel (débit d\'air et charge). ' : 'Calculée sur le débit d\'air du moteur. ') + 'Prix : ' + nf(price(), 3) + ' €/L (' + S.fuelType + '). Compare avec tes pleins et ajuste « Correction conso » dans Réglages.'))}
+          na('<span data-k="fuelSrc"></span> Prix : ' + nf(price(), 3) + ' €/L (' + S.fuelType + '). Compare avec tes pleins et ajuste « Correction conso » dans Réglages.'))}
         ${mod('engine', 'Régime · couple · eau', `<div class="tri">${gauge('rpm', '<span class="n" data-k="rpm"></span><span class="u">tr/min</span>')}${gauge('tq', '<span class="n" data-k="tq"></span><span class="u">N·m est.</span>')}${gauge('ect', '<span class="n" data-k="ect"></span><span class="u">°C eau</span>')}</div>`)}
         ${mod('g', 'Virages en g · freinages', `<div class="row" style="gap:18px"><div class="gball" data-ball><i></i></div><div class="col"><div><span class="k">Virage</span><div class="n" data-k="lat"></div></div><div><span class="k">Freinage</span><div class="n" data-k="brk"></div></div>
           <span class="s">Maxi du trajet : <b data-k="mlat"></b> g / <b data-k="mbrk"></b> g</span></div></div>`)}
@@ -670,10 +705,12 @@
           <div class="bar-t"><i data-bar="volt"></i></div><span class="s" data-k="voltS"></span>${dtcList}
           <div class="btns"><button class="btn small" data-act="readDtc" ${live ? '' : 'disabled'}>Lire les codes</button><button class="btn small danger" data-act="clearDtc" ${live && L.dtc && L.dtc.length ? '' : 'disabled'}>Effacer</button></div>`)}
         ${mod('cold', 'Moteur froid en °C · turbo', `<div class="row between"><div><span class="n" data-k="ect" data-on="cold:cold"></span> <span class="u">°C</span></div><span class="s" data-k="oil"></span></div><div class="bar-t"><i data-bar="ect"></i></div><span class="s" data-k="coldMsg"></span>
-          ${e.turbo ? `<div class="row between" style="margin-top:4px"><span class="k">Turbo</span><span class="t"><span data-k="boost"></span> bar</span></div><div class="bar-t"><i data-bar="boost"></i></div>` : `<p class="na">Moteur ${esc(e.name)} atmosphérique : pas de turbo à surveiller.</p>`}`)}
+          ${e.turbo ? `<div class="row between" style="margin-top:4px"><span class="k">Turbo</span><span class="t"><span data-k="boost"></span> bar</span></div><div class="bar-t"><i data-bar="boost"></i></div>` : `<p class="na">Moteur ${esc(e.name)} atmosphérique : pas de turbo à surveiller.</p>`}
+          ${e.diesel ? `<div class="row between" style="margin-top:4px"><span class="k">Pression rail</span><span class="t"><span data-k="rail"></span> bar</span></div><div class="bar-t"><i data-bar="rail"></i></div><div class="row between"><span class="k">Vanne EGR</span><span class="t"><span data-k="egr"></span> %</span></div>` : ''}`)}
         ${mod('carplay', 'Portes · feux · marche arrière', `<div class="row" style="gap:16px;opacity:.5"><span class="ic">${icon('carplay')}</span><span class="t">Non disponible</span></div>`,
           na('Ces infos arrivent dans l\'autoradio par son décodeur CAN (canbox) ou ses fils, et la plupart des autoradios ne les partagent pas avec les applis. Elles ne sont pas gérées par cette version.'))}
-      </div>`;
+      </div>${NATIVE ? `<div class="card col" style="margin-top:14px"><div class="row between"><h3 style="margin:0">Journal de connexion</h3><button class="btn small" data-act="logShare">Partager</button></div>
+        <pre class="log" data-log>${esc(L.log.slice(-40).join('\n') || 'Le journal se remplit pendant la connexion au boîtier. En cas de souci, fais une capture d\'écran de ce cadre.')}</pre></div>` : ''}`;
     },
 
     trips() {
@@ -743,7 +780,7 @@
         ${NATIVE ? `<div class="card col"><h3>Musique</h3><p class="hint">Pour afficher le titre et la pochette de n'importe quelle appli musique, autorise « Dash 955 · titre et pochette » dans l'accès aux notifications.</p><div class="btns"><span class="pill ${mediaOk() ? 'ok' : 'warn'}">${mediaOk() ? 'Autorisé' : 'Pas encore autorisé'}</span><button class="btn small" data-act="mediaAccess">Ouvrir le réglage</button></div></div>` : ''}
         <div class="card col"><h3>Essai</h3><label class="row between"><span class="col" style="gap:2px"><span class="t">Mode démo</span><span class="s">Trajet simulé avec données moteur, pour essayer l'appli à l'arrêt.</span></span><span class="switch"><input type="checkbox" data-set="demo" ${S.demo ? 'checked' : ''}><span></span></span></label></div>
         <div class="card col"><h3>Mes données</h3><p class="hint">${S.trips.length} trajets · ${nf(S.kmTotal, 0)} km enregistrés. Tout reste sur l'appareil.</p><div class="btns"><button class="btn" data-act="export">Exporter</button><button class="btn" data-act="import">Importer</button><button class="btn danger" data-act="reset">Tout effacer</button></div></div>
-        <div class="card col"><h3>À propos</h3><p class="hint">Dash 955 ${esc(INFO.version || 'web')} · pour Alfa Romeo MiTo (2008 à 2018), réglée pour 2009.${INFO.model ? ' · ' + esc(INFO.model) : ''}<br>Application indépendante, non affiliée à Alfa Romeo ni à Stellantis. Ne la règle pas en roulant.</p></div></div>`;
+        <div class="card col"><h3>À propos</h3><p class="hint">Dash 955 ${esc(INFO.version || 'web')} · pour Alfa Romeo MiTo (2008 à 2018), réglée pour 2009.${INFO.model ? ' · ' + esc(INFO.model) : ''}${INFO.sdk ? ' · Android API ' + INFO.sdk : ''} · moteur web ${esc((navigator.userAgent.match(/Chrome\/(\d+)/) || [0, '?'])[1])}<br>Application indépendante, non affiliée à Alfa Romeo ni à Stellantis. Ne la règle pas en roulant.</p></div></div>`;
     },
   };
 
@@ -780,25 +817,75 @@
   }
 
   /* -------------------------------------------------------- feuilles -- */
-  let sheetKind = '';
+  let sheetKind = '', sheetSeq = 0;
   function openSheet(title, html, kind) {
     sheetKind = kind || '';
+    sheetSeq++;
+    const sh = $('#sheet');
     $('#sheet-title').textContent = title;
     $('#sheet-body').innerHTML = html;
-    $('#sheet').hidden = false;
+    $('#sheet-body').scrollTop = 0;
+    $('.sheet__card', sh).style.transform = '';
+    if (sh.hidden) { sh.hidden = false; void sh.offsetWidth; }
+    sh.classList.add('open');
   }
-  function closeSheet() { $('#sheet').hidden = true; sheetKind = ''; render(); }
+  function closeSheet() {
+    const sh = $('#sheet'), seq = ++sheetSeq;
+    if (sheetKind === 'welcome') { S.onboarded = true; save(); }
+    sh.classList.remove('open');
+    $('.sheet__card', sh).style.transform = '';
+    sheetKind = '';
+    setTimeout(() => { if (seq === sheetSeq) sh.hidden = true; }, REDUCE ? 0 : 220);
+    render();
+  }
+  (function dragSheet() {
+    const card = $('.sheet__card');
+    let y0 = null, dy = 0;
+    card.addEventListener('touchstart', (e) => {
+      const inHead = e.target.closest('.sheet__head');
+      const body = $('#sheet-body');
+      if (!inHead && body.scrollTop > 0) return;
+      y0 = e.touches[0].clientY; dy = 0; card.style.transition = 'none';
+    }, { passive: true });
+    card.addEventListener('touchmove', (e) => {
+      if (y0 == null) return;
+      dy = Math.max(0, e.touches[0].clientY - y0);
+      card.style.transform = `translate3d(0, ${dy}px, 0)`;
+    }, { passive: true });
+    card.addEventListener('touchend', () => {
+      if (y0 == null) return;
+      card.style.transition = '';
+      y0 = null;
+      if (dy > 110) closeSheet(); else card.style.transform = '';
+    }, { passive: true });
+  })();
   function renderDevices() {
     let paired = [];
     try { paired = (JSON.parse(call('obdDevices') || '{}').list) || []; } catch (e) { paired = []; }
-    const row = (d, act) => `<button class="li" data-${act}="${esc(d.kind)}|${esc(d.addr)}"><span class="ic ${d.obd ? 'hot' : ''}">${icon(d.kind === 'ble' ? 'bt' : 'bt')}</span><span class="col fill" style="gap:2px"><span class="t">${esc(d.name)}</span><span class="s">${d.kind === 'ble' ? 'Bluetooth basse conso.' : 'Bluetooth'}${d.obd ? ' · ressemble à un boîtier OBD' : ''}${d.bonded === false ? ' · à appairer' : ''}</span></span></button>`;
+    const row = (d, act) => devRow(d, act);
     const found = L.found.filter((d) => !paired.some((p) => p.addr === d.addr));
-    found.sort((a, b) => (b.obd ? 1 : 0) - (a.obd ? 1 : 0));
+    found.sort(devSort);
     $('#sheet-body').innerHTML = `<p class="hint">Les boîtiers Bluetooth classiques s'appairent d'abord (code 1234 ou 0000). Les boîtiers « BLE » se connectent directement.</p>
       <div class="card"><h3>Appairés</h3><div class="list">${paired.length ? paired.sort((a, b) => (b.obd ? 1 : 0) - (a.obd ? 1 : 0)).map((d) => row(d, 'connect')).join('') : '<p class="hint">Aucun appareil appairé.</p>'}</div></div>
       <div class="card"><div class="row between"><h3 style="margin:0">À proximité</h3><button class="btn small" data-act="obdScan" ${L.scanning ? 'disabled' : ''}>${L.scanning ? 'Recherche…' : 'Rechercher'}</button></div>
       <div class="list">${found.map((d) => row(d, d.kind === 'classic' && !d.bonded ? 'pair' : 'connect')).join('') || '<p class="hint">Touche « Rechercher », boîtier branché et contact mis.</p>'}</div></div>
       <div class="btns"><button class="btn" data-act="btSettings">Réglages Bluetooth</button><button class="btn danger" data-act="obdForget">Oublier le boîtier</button></div>`;
+  }
+  const devSort = (a, b) => (b.rev ? 2 : 0) + (b.obd ? 1 : 0) - ((a.rev ? 2 : 0) + (a.obd ? 1 : 0)) || (b.rssi || -200) - (a.rssi || -200);
+  function devRow(d, act) {
+    const what = d.rev ? 'probablement ton RevKing' : d.obd ? 'ressemble à un boîtier OBD' : '';
+    return `<button class="li" data-${act}="${esc(d.kind)}|${esc(d.addr)}"><span class="ic ${d.rev || d.obd ? 'hot' : ''}">${icon('bt')}</span><span class="col fill" style="gap:2px"><span class="t">${esc(d.name)}</span><span class="s">${d.kind === 'ble' ? 'Bluetooth basse conso.' : 'Bluetooth'}${what ? ' · ' + what : ''}${d.kind === 'classic' && d.bonded === false ? ' · à appairer' : ''}${d.rssi ? ' · signal ' + (d.rssi > -65 ? 'fort' : d.rssi > -85 ? 'moyen' : 'faible') : ''}</span></span><span class="pill ${d.rev || d.obd ? 'on' : ''}">Connecter</span></button>`;
+  }
+  function renderRevking() {
+    const ble = L.found.filter((d) => d.kind === 'ble').sort(devSort);
+    $('#sheet-body').innerHTML = `<ol class="steps">
+        <li><b>Branche le RevKing</b> dans la prise OBD : sous la planche de bord, à gauche du volant, derrière la petite trappe.</li>
+        <li><b>Mets le contact</b> (ou démarre le moteur).</li>
+        <li><b>Ferme l'appli RevHeadz</b> sur ton téléphone, ou coupe son Bluetooth : le RevKing n'accepte qu'une connexion à la fois.</li>
+        <li><b>Touche « Rechercher »</b>, puis ton boîtier dans la liste.</li></ol>
+      <div class="btns"><button class="btn primary" data-act="revScan" ${L.scanning ? 'disabled' : ''}>${L.scanning ? 'Recherche… (15 s)' : 'Rechercher'}</button><button class="btn" data-act="revAuto">Détection automatique</button></div>
+      <div class="list">${ble.map((d) => devRow(d, 'connect')).join('') || `<p class="hint">${L.scanning ? 'Recherche des boîtiers Bluetooth…' : 'Aucun boîtier trouvé pour l\'instant.'}</p>`}</div>
+      <p class="hint">Le RevKing apparaît souvent sous un nom comme « REVKING », « OBDII » ou « OBDBLE ». S'il n'a pas de nom, essaie ceux marqués « ressemble à un boîtier OBD ».</p>`;
   }
   function renderLedList() {
     const list = L.ledFound.slice().sort((a, b) => (b.led ? 1 : 0) - (a.led ? 1 : 0));
@@ -816,7 +903,17 @@
 
   /* -------------------------------------------------------- actions -- */
   const A = {
-    obdAuto() { L.found = []; call('obdAuto'); },
+    obdAuto() { L.found = []; L.log = []; call('obdAuto'); toast('Recherche du boîtier…'); },
+    revking() {
+      if (!NATIVE) return toast('La connexion au boîtier se fait dans l\'appli Android');
+      if (!INFO.btOn) call('enableBluetooth');
+      openSheet('Mon RevKing', '', 'revking'); renderRevking();
+      if (!L.found.length) A.revScan();
+    },
+    revScan() { L.scanning = true; L.found = []; call('obdScan'); renderRevking(); },
+    revAuto() { L.log = []; call('obdAuto'); closeSheet(); go('engine'); toast('Recherche du RevKing…'); },
+    logShare() { const txt = 'Dash 955 · journal OBD\n' + (INFO.model || '') + '\n' + L.log.join('\n'); if (NATIVE) call('share', txt, 'Dash 955 · journal OBD'); },
+    welcomeDemo() { S.demo = true; save(); startDemo(); closeSheet(); go('home'); },
     obdDevices() { openSheet('Boîtier OBD', '', 'devices'); renderDevices(); },
     obdScan() { L.scanning = true; L.found = []; call('obdScan'); renderDevices(); },
     obdWifi() { openSheet('Boîtier Wi-Fi', `<p class="hint">1. Connecte l'appareil au Wi-Fi du boîtier (souvent « WiFi_OBDII »). 2. Reviens ici et connecte. Adresse par défaut : 192.168.0.10, port 35000.</p>
@@ -885,12 +982,17 @@
   document.addEventListener('click', (e) => {
     const t = e.target.closest('button, [data-close]');
     if (!t) return;
+    if (t.tagName === 'BUTTON' && !t.disabled) haptic();
     const d = t.dataset;
     if (d.close !== undefined) return closeSheet();
     if (d.go) return go(d.go);
     if (d.act && A[d.act]) return A[d.act]();
     if (d.media) { call('media', d.media); return; }
-    if (d.theme) { S.theme = d.theme; save(); applyTheme(); render(); return; }
+    if (d.theme) {
+      const apply = () => { S.theme = d.theme; save(); applyTheme(); render(); };
+      if (document.startViewTransition && !REDUCE) document.startViewTransition(apply); else apply();
+      return;
+    }
     if (d.trip !== undefined) { selTrip = +d.trip; render(); return; }
     if (d.deltrip !== undefined) { const t2 = S.trips[selTrip]; if (t2) { S.trips.splice(selTrip, 1); S.kmTotal = Math.max(0, S.kmTotal - t2.dist); selTrip = 0; save(); render(); } return; }
     if (d.connect) { call('obdConnect', d.connect); closeSheet(); go('engine'); return; }
@@ -912,6 +1014,15 @@
     if (e.target.matches('[data-ledbright]')) { S.led.bright = +e.target.value; e.target.previousElementSibling.querySelector('span').textContent = S.led.bright; save(); ledApply(); if (NATIVE) call('ledBrightness', S.led.bright); }
   });
 
+  function welcome() {
+    const e = S.engine;
+    openSheet('Bienvenue dans Dash 955', `<p class="hint">Ton écran de bord pour Alfa Romeo MiTo. Trois réglages et c'est parti.</p>
+      <div class="field"><label for="w-engine">1. Ta motorisation</label><select class="input" id="w-engine" data-set="engine">${Object.keys(ENGINES).map((k) => `<option value="${k}" ${k === e ? 'selected' : ''}>${ENGINES[k].name}</option>`).join('')}</select></div>
+      ${NATIVE ? `<div class="field"><label>2. Ton boîtier OBD</label><button class="btn" data-act="revking">Connecter mon RevKing</button></div>
+      <div class="field"><label>3. CarPlay en un glissement</label><button class="btn" data-act="pickCarplay">Choisir l'appli CarPlay</button></div>` : '<p class="hint">Sur iPhone, la vitesse GPS, les trajets, la route et l\'entretien marchent ici. Le boîtier OBD se connecte avec l\'appli Android.</p>'}
+      <div class="btns"><button class="btn primary" data-close>C'est parti</button><button class="btn" data-act="welcomeDemo">Essayer en démo</button></div>`, 'welcome');
+    S.onboarded = true; save();
+  }
   function editService(id) {
     const x = S.service.find((y) => y.id === id); if (!x) return;
     openSheet(x.name, `<div class="grid" style="grid-template-columns:1fr 1fr">
@@ -927,13 +1038,22 @@
     };
   }
 
-  /* swipe vers la gauche sur l'accueil : CarPlay */
+  /* glissements : sur l'accueil, gauche = CarPlay, droite = applis ; ailleurs, onglet précédent / suivant */
   let sw = null;
-  document.addEventListener('touchstart', (e) => { if (view !== 'home' || !$('#sheet').hidden) return; const t = e.touches[0]; sw = { x: t.clientX, y: t.clientY, t: now() }; }, { passive: true });
+  document.addEventListener('touchstart', (e) => {
+    if (!$('#sheet').hidden || e.touches.length > 1) return;
+    if (e.target.closest('input, select, textarea, .swatches, .dock, .plane')) return;
+    const t = e.touches[0]; sw = { x: t.clientX, y: t.clientY, t: now() };
+  }, { passive: true });
   document.addEventListener('touchend', (e) => {
-    if (!sw) return; const t = e.changedTouches[0]; const dx = t.clientX - sw.x, dy = t.clientY - sw.y;
-    if (dx < -90 && Math.abs(dy) < 70 && now() - sw.t < 700) A.carplay();
+    if (!sw) return;
+    const t = e.changedTouches[0], dx = t.clientX - sw.x, dy = t.clientY - sw.y, fast = now() - sw.t < 650;
     sw = null;
+    if (!fast || Math.abs(dx) < 80 || Math.abs(dy) > Math.abs(dx) * 0.6) return;
+    const i = VIEWS.indexOf(view);
+    if (view === 'home') { if (dx < 0) A.carplay(); else if (NATIVE) A.apps(); return; }
+    if (dx < 0 && i < VIEWS.length - 1) go(VIEWS[i + 1], 1);
+    else if (dx > 0 && i > 0) go(VIEWS[i - 1], -1);
   }, { passive: true });
 
   let toastT = 0;
@@ -979,6 +1099,15 @@
     else { L.speed = L.speed > 0.5 ? L.speed * 0.9 : 0; L.speedSrc = ''; }
     if (!obdFresh() && !(g.t && now() - g.t < 4000)) L.accel *= 0.9;
     L.fuelRate = fuelRate();
+    const k = 1 - Math.exp(-dt * 7), k2 = 1 - Math.exp(-dt * 4);
+    SM.speed += (L.speed - SM.speed) * k;
+    SM.rpm += ((obdFresh() && L.o.rpm != null ? L.o.rpm : 0) - SM.rpm) * k;
+    SM.accel += (L.accel - SM.accel) * k;
+    SM.latG += (L.latG - SM.latG) * k;
+    SM.tq += ((obdFresh() ? torque() || 0 : 0) - SM.tq) * k;
+    SM.boost += ((obdFresh() ? Math.max(0, boost() || 0) : 0) - SM.boost) * k;
+    SM.ect += ((L.o.ect != null ? L.o.ect : 40) - SM.ect) * k2;
+    SM.rail += ((obdFresh() && L.o.rail != null ? L.o.rail : 0) - SM.rail) * k;
     tripTick(dt);
     tick(false);
     ledApply(false);
@@ -1001,6 +1130,7 @@
   renderStatus();
   render();
   if (S.demo || /[?&]demo=1/.test(location.search)) { S.demo = true; startDemo(); }
+  if (!S.onboarded && !/[?&]demo=1/.test(location.search)) welcome();
   if (NATIVE) {
     call('obdResume');
     if (INFO.ledSaved) call('ledConnect', INFO.ledSaved);

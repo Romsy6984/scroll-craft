@@ -26,7 +26,8 @@ final class Ble {
     static final UUID CCCD = UUID.fromString("00002902-0000-1000-8000-00805f9b34fb");
 
     interface Found {
-        void found(String name, String address, int rssi);
+        /** services: advertised 16-bit or 128-bit service ids, comma separated (may be empty). */
+        void found(String name, String address, int rssi, String services);
     }
 
     static String shortId(UUID u) {
@@ -47,7 +48,14 @@ final class Ble {
                 BluetoothDevice d = r.getDevice();
                 String name = r.getScanRecord() != null ? r.getScanRecord().getDeviceName() : null;
                 if (name == null) name = d.getName();
-                cb.found(name, d.getAddress(), r.getRssi());
+                StringBuilder sv = new StringBuilder();
+                if (r.getScanRecord() != null && r.getScanRecord().getServiceUuids() != null) {
+                    for (android.os.ParcelUuid u : r.getScanRecord().getServiceUuids()) {
+                        if (sv.length() > 0) sv.append(',');
+                        sv.append(shortId(u.getUuid()));
+                    }
+                }
+                cb.found(name, d.getAddress(), r.getRssi(), sv.toString());
             }
         };
         try {

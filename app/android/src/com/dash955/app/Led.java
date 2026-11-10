@@ -40,7 +40,7 @@ final class Led {
                 final Set<String> seen = new HashSet<String>();
                 try {
                     Ble.scan(7000, new Ble.Found() {
-                        public void found(String name, String address, int rssi) {
+                        public void found(String name, String address, int rssi, String services) {
                             if (name == null || !seen.add(address)) return;
                             hub.emit("ledFound", Hub.obj("name", name, "addr", address, "rssi", rssi,
                                     "led", LED_NAME.matcher(name).matches()));

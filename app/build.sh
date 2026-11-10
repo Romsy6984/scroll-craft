@@ -66,4 +66,8 @@ if [ -d "$SITE" ]; then
   mkdir -p "$SITE/app"
   cp -r "$HERE/web/." "$SITE/app/"
 fi
-ls -l "$HERE/dist/dash955.apk"
+# Paquet pour clé USB : l'APK et sa notice, à copier à la racine de la clé.
+rm -f "$HERE/dist/dash955-cle-usb.zip"
+(cd "$HERE/dist" && cp "$HERE/usb/LISEZMOI.txt" . && zip -q dash955-cle-usb.zip dash955.apk LISEZMOI.txt && rm -f LISEZMOI.txt)
+if [ -d "$SITE" ]; then cp "$HERE/dist/dash955-cle-usb.zip" "$SITE/telechargement/"; fi
+ls -l "$HERE/dist/dash955.apk" "$HERE/dist/dash955-cle-usb.zip"

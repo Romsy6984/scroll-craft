@@ -1,0 +1,43 @@
+DASH 955 · installation par clé USB
+Alfa Romeo MiTo 1.6 JTDM 120 ch · boîtier OBD RevKing
+
+1. PRÉPARER LA CLÉ
+   Copie le fichier dash955.apk à la racine de la clé USB.
+   La clé doit être formatée en FAT32 (c'est le cas de la plupart des clés).
+
+2. INSTALLER SUR L'ÉCRAN CARPLAY
+   - Branche la clé sur le port USB de l'écran (ou du câble USB de la voiture).
+   - Ouvre l'appli des fichiers de l'écran : « Fichiers », « Gestionnaire de
+     fichiers », « File Manager » ou « ES Explorer ».
+   - Va dans la clé USB et touche dash955.apk.
+   - Android demande d'autoriser les applications inconnues : accepte.
+     Sur les anciens modèles : Paramètres > Sécurité > Sources inconnues.
+   - Touche « Installer », puis « Ouvrir ».
+
+3. PREMIER LANCEMENT
+   - Autorise la localisation (vitesse GPS et recherche Bluetooth).
+   - L'écran de bienvenue est déjà réglé sur ta 1.6 JTDM 120 ch.
+
+4. CONNECTER LE REVKING
+   - Branche le RevKing dans la prise OBD : sous la planche de bord,
+     à gauche du volant, derrière la petite trappe.
+   - Mets le contact.
+   - Ferme l'appli RevHeadz sur ton téléphone (ou coupe son Bluetooth) :
+     le RevKing n'accepte qu'une seule connexion à la fois.
+   - Dans Dash 955 : onglet Moteur > « Connecter mon RevKing » > Rechercher,
+     puis touche le boîtier dans la liste.
+   - En cas de souci, fais une capture du « Journal de connexion »
+     (en bas de l'onglet Moteur).
+
+5. CARPLAY EN UN GLISSEMENT
+   Réglages > CarPlay en un glissement > choisis l'appli CarPlay de l'écran.
+   Ensuite, glisse vers la gauche sur l'accueil pour l'ouvrir.
+
+6. MISE À JOUR
+   Même méthode : copie la nouvelle version de dash955.apk sur la clé et
+   installe-la par-dessus. Tes trajets et réglages sont conservés.
+
+« La connexion n'est pas privée » dans le navigateur de l'écran ?
+   C'est presque toujours la date ou l'heure de l'écran qui est fausse.
+   Paramètres > Date et heure > « Automatique », ou règle-les à la main,
+   puis recharge la page. La clé USB évite complètement ce problème.

@@ -9,8 +9,15 @@ L'application elle-même, pour Alfa Romeo MiTo 2009. Deux versions, une seule in
 
 ## Installer l'APK
 
+**Par clé USB (le plus sûr)** : `dist/dash955-cle-usb.zip` (aussi dans
+`sites/mito-2009/telechargement/`) contient `dash955.apk` et une notice `LISEZMOI.txt`.
+Copie l'APK à la racine d'une clé FAT32, branche-la sur l'écran, ouvre-le avec l'appli Fichiers.
+
+**Par le site** :
+
 1. Sur le boîtier CarPlay Android (ou l'autoradio), ouvre le site et touche « Télécharger
-   l'application ». Autre solution : copie `dash955.apk` sur une clé USB.
+   l'application ». Si le navigateur affiche « La connexion n'est pas privée », la date ou
+   l'heure de l'écran est fausse : règle-les, ou passe par la clé USB.
 2. Ouvre le fichier. Android demande d'autoriser les applications inconnues : accepte.
 3. Ouvre Dash 955 et autorise la localisation (vitesse GPS, recherche Bluetooth).
 4. **Réglages > CarPlay en un glissement** : choisis l'appli qui affiche CarPlay (ZLink,
@@ -22,6 +29,18 @@ L'application elle-même, pour Alfa Romeo MiTo 2009. Deux versions, une seule in
 
 Un vrai CarPlay Apple, lui, n'installe aucune appli : il faut un boîtier ou un autoradio
 qui tourne sous Android.
+
+## Boîtier RevKing (RevKingz)
+
+Le RevKing est un boîtier OBD Bluetooth basse consommation (BLE) compatible ELM327 : son
+fabricant le donne compatible avec les applis de diagnostic comme Car Scanner ou EOBD Facile.
+Son nom Bluetooth exact n'est pas publié, donc l'appli le reconnaît de deux façons : un nom
+contenant « rev », « king » ou « headz », ou les services Bluetooth des boîtiers ELM327 (FFF0,
+FFE0…).
+
+**Moteur > Connecter mon RevKing** guide la connexion : boîtier branché, contact mis, appli
+RevHeadz du téléphone fermée (un boîtier BLE n'accepte qu'une connexion), puis Rechercher. Le
+journal de connexion en bas de l'onglet Moteur montre chaque échange avec le boîtier.
 
 ## Brancher le boîtier OBD
 
@@ -43,7 +62,8 @@ Le boîtier choisi est retenu et se reconnecte tout seul au démarrage.
 
 Régime, vitesse, charge, pression d'admission (turbo), débit d'air, papillon, température
 d'eau et d'air, pression atmosphérique, tension batterie, voyant moteur et codes défaut (lecture
-et effacement). La consommation se calcule à partir du débit d'air : compare avec tes pleins et
+et effacement). Pour le 1.6 JTDM diesel, en plus si le calculateur les donne : pression du rail,
+vanne EGR et débit de carburant (consommation alors exacte). La consommation se calcule à partir du débit d'air : compare avec tes pleins et
 ajuste « Correction conso » dans Réglages. Le couple est une estimation.
 
 **Pas encore gérés** (honnêtement) :

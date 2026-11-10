@@ -37,7 +37,11 @@ import java.util.regex.Pattern;
 final class Obd {
     static final UUID SPP = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB");
     static final Pattern OBD_NAME = Pattern.compile(
-            "(?i).*(obd|elm|v-?link|vgate|icar|konnwei|viecar|carista|veepeak|kiwi|kw9|vlinker|scan|torque|link|car).*");
+            "(?i).*(obd|elm|v-?link|vgate|icar|konnwei|viecar|carista|veepeak|kiwi|kw9|vlinker|scan|torque|link|car|rev|king|headz).*");
+    /** RevKing (RevKingz) adapters: matched first when several devices answer. */
+    static final Pattern REVKING = Pattern.compile("(?i).*(rev|king|headz).*");
+    /** BLE services exposed by ELM327-compatible adapters. */
+    static final String[] OBD_SERVICES = {"fff0", "ffe0", "18f0", "e7810a71-73ae-499d-8c15-faa9aef0c3f2"};
     static final String WIFI_DEFAULT = "192.168.0.10:35000";
     /** service, notify, write: known BLE adapters first, generic fallback after. */
     static final String[][] BLE_PREF = {
@@ -134,14 +138,15 @@ final class Obd {
                 final Set<String> seen = new HashSet<String>();
                 status("scan", "Recherche des boîtiers…", "");
                 try {
-                    discoverClassic(9000, new Ble.Found() {
-                        public void found(String name, String address, int rssi) {
-                            if (seen.add(address)) pushFound(name, address, "classic", rssi);
+                    Ble.scan(7000, new Ble.Found() {
+                        public void found(String name, String address, int rssi, String services) {
+                            if ((name != null || obdService(services)) && seen.add(address))
+                                pushFound(name, address, "ble", rssi, services);
                         }
                     });
-                    Ble.scan(7000, new Ble.Found() {
-                        public void found(String name, String address, int rssi) {
-                            if (name != null && seen.add(address)) pushFound(name, address, "ble", rssi);
+                    discoverClassic(9000, new Ble.Found() {
+                        public void found(String name, String address, int rssi, String services) {
+                            if (seen.add(address)) pushFound(name, address, "classic", rssi, "");
                         }
                     });
                 } catch (InterruptedException ignored) {
@@ -203,6 +208,7 @@ final class Obd {
                 closeLink();
                 if (!want || worker != me) break;
                 fails++;
+                log("erreur : " + msg(e));
                 status("lost", linkName, msg(e));
                 try {
                     Thread.sleep(Math.min(20000, 3000L * fails));
@@ -217,27 +223,45 @@ final class Obd {
     private String detect(Thread me) throws InterruptedException {
         status("detect", "", "Recherche d'un boîtier OBD…");
         final List<String> cands = new ArrayList<String>();
+        final List<String> bleByName = new ArrayList<String>();
+        final List<String> bleRev = new ArrayList<String>();
+        final List<String> bleBySvc = new ArrayList<String>();
+        final Set<String> seenAdv = new HashSet<String>();
+        String last = saved();
+        if (last.length() > 0) cands.add(last);
         BluetoothAdapter ad = BluetoothAdapter.getDefaultAdapter();
         if (ad != null && ad.isEnabled()) {
+            status("detect", "", "Recherche Bluetooth basse consommation (RevKing, iCar, Vgate…)");
+            Ble.scan(7000, new Ble.Found() {
+                public void found(String name, String address, int rssi, String services) {
+                    if (!seenAdv.add(address)) return;
+                    String s = "ble|" + address;
+                    boolean led = name != null && Led.LED_NAME.matcher(name).matches();
+                    log("vu  " + (name == null ? "(sans nom)" : name) + "  " + address + (services.length() > 0 ? "  [" + services + "]" : ""));
+                    if (name != null && REVKING.matcher(name).matches()) { if (!bleRev.contains(s)) bleRev.add(s); }
+                    else if (name != null && OBD_NAME.matcher(name).matches() && !led) { if (!bleByName.contains(s)) bleByName.add(s); }
+                    else if (obdService(services) && !led) { if (!bleBySvc.contains(s)) bleBySvc.add(s); }
+                }
+            });
+            cands.addAll(bleRev);
+            cands.addAll(bleByName);
             try {
                 for (BluetoothDevice d : ad.getBondedDevices()) {
                     String n = d.getName() == null ? "" : d.getName();
-                    if (OBD_NAME.matcher(n).matches()) cands.add("classic|" + d.getAddress());
+                    if (d.getType() != BluetoothDevice.DEVICE_TYPE_LE && OBD_NAME.matcher(n).matches())
+                        cands.add("classic|" + d.getAddress());
                 }
             } catch (SecurityException ignored) {
             }
-            status("detect", "", "Recherche Bluetooth basse consommation…");
-            Ble.scan(6000, new Ble.Found() {
-                public void found(String name, String address, int rssi) {
-                    String s = "ble|" + address;
-                    if (name != null && OBD_NAME.matcher(name).matches() && !cands.contains(s)) cands.add(s);
-                }
-            });
+            cands.addAll(bleBySvc);
         } else {
             status("detect", "", "Bluetooth désactivé : essai en Wi-Fi");
         }
         cands.add("wifi|" + WIFI_DEFAULT);
-        for (String c : cands) {
+        List<String> uniq = new ArrayList<String>();
+        for (String c : cands) if (!uniq.contains(c)) uniq.add(c);
+        log("candidats : " + uniq.size());
+        for (String c : uniq) {
             if (!want || worker != me) return null;
             try {
                 open(c);
@@ -246,10 +270,22 @@ final class Obd {
                 throw e;
             } catch (Exception e) {
                 closeLink();
+                log("échec " + c + " : " + msg(e));
                 status("detect", "", "Pas de réponse de " + linkName + " (" + msg(e) + ")");
             }
         }
         return null;
+    }
+
+    static boolean obdService(String services) {
+        if (services == null || services.length() == 0) return false;
+        for (String x : OBD_SERVICES) if (services.contains(x)) return true;
+        return false;
+    }
+
+    /** One line of the connection journal, shown in the Moteur tab. */
+    void log(String line) {
+        hub.emit("obdLog", Hub.obj("l", line, "t", System.currentTimeMillis()));
     }
 
     private void open(String spec) throws Exception {
@@ -365,6 +401,16 @@ final class Obd {
     /* --------------------------------------------------------------- ELM327 */
 
     private String init() throws Exception {
+        logging = true;
+        try {
+            return doInit();
+        } finally {
+            logging = false;
+        }
+    }
+
+    private String doInit() throws Exception {
+        log("connexion à " + linkName);
         cmd("ATZ", 4000);
         Thread.sleep(400);
         String v = cmd("ATI", 2500);
@@ -422,8 +468,16 @@ final class Obd {
         return Hub.obj("pids", a, "can", can).toString();
     }
 
+    private boolean logging;
+
     /** Sends a command, returns the cleaned reply, or null on timeout. */
     private String cmd(String c, long timeoutMs) throws IOException, InterruptedException {
+        String r = rawCmd(c, timeoutMs);
+        if (logging) log("> " + c + "   " + (r == null ? "(pas de réponse)" : r.replace('\n', ' ')));
+        return r;
+    }
+
+    private String rawCmd(String c, long timeoutMs) throws IOException, InterruptedException {
         InputStream i = in;
         OutputStream o = out;
         if (i == null || o == null) throw new IOException("liaison fermée");
@@ -487,8 +541,8 @@ final class Obd {
     /* ----------------------------------------------------------------- poll */
 
     private void poll(Thread me) throws Exception {
-        int[] fast = {0x0C, 0x0D, 0x04, 0x0B, 0x10, 0x11};
-        int[] slow = {0x05, 0x0F, 0x33, 0x46, 0x5C, 0x2F, 0x01, 0x42};
+        int[] fast = {0x0C, 0x0D, 0x04, 0x0B, 0x10, 0x11, 0x5E};
+        int[] slow = {0x05, 0x0F, 0x33, 0x46, 0x5C, 0x2F, 0x01, 0x42, 0x23, 0x2C};
         int cycle = 0, silent = 0;
         boolean asleep = false;
         timeouts = 0;
@@ -548,6 +602,9 @@ final class Obd {
             case 0x5C: o.put("oil", a - 40); break;
             case 0x2F: o.put("fuel", a * 100.0 / 255); break;
             case 0x42: o.put("cmv", ((a * 256) + b) / 1000.0); break;
+            case 0x23: o.put("rail", ((a * 256) + b) * 10); break;
+            case 0x5E: o.put("fuelRate", ((a * 256) + b) / 20.0); break;
+            case 0x2C: o.put("egr", a * 100.0 / 255); break;
             case 0x01:
                 o.put("mil", (a & 0x80) != 0);
                 o.put("dtcCount", a & 0x7F);
@@ -616,7 +673,7 @@ final class Obd {
                 int type = d.getType();
                 if (type == BluetoothDevice.DEVICE_TYPE_LE) return;
                 short rssi = i.getShortExtra(BluetoothDevice.EXTRA_RSSI, (short) 0);
-                cb.found(d.getName(), d.getAddress(), rssi);
+                cb.found(d.getName(), d.getAddress(), rssi, "");
             }
         };
         hub.ctx.registerReceiver(rcv, new IntentFilter(BluetoothDevice.ACTION_FOUND));
@@ -633,16 +690,17 @@ final class Obd {
         }
     }
 
-    private void pushFound(String name, String address, String kind, int rssi) {
+    private void pushFound(String name, String address, String kind, int rssi, String services) {
         boolean bonded = false;
         try {
             BluetoothDevice d = BluetoothAdapter.getDefaultAdapter().getRemoteDevice(address);
             bonded = d.getBondState() == BluetoothDevice.BOND_BONDED;
         } catch (Exception ignored) {
         }
-        String n = name == null ? address : name;
+        String n = name == null ? "Appareil sans nom" : name;
+        boolean obd = OBD_NAME.matcher(n).matches() || obdService(services);
         hub.emit("obdFound", Hub.obj("name", n, "addr", address, "kind", kind, "rssi", rssi,
-                "bonded", bonded, "obd", OBD_NAME.matcher(n).matches()));
+                "bonded", bonded, "obd", obd, "rev", REVKING.matcher(n).matches(), "svc", services));
     }
 
     private void status(String state, String label, String info) {
